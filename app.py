@@ -13,8 +13,9 @@ import threading
 import time
 
 
-# API base URL (running locally)
-API_BASE = "http://localhost:7860"
+# API base URL
+# FastAPI runs on port 8000 (both locally and on HF)
+API_BASE = "http://localhost:8000"
 
 
 class GameState:
@@ -626,27 +627,30 @@ if __name__ == "__main__":
     # Detect if running on Hugging Face Spaces
     is_huggingface = os.getenv("SPACE_ID") is not None
 
+    # Run FastAPI in background on port 8000 (both local and HF)
+    def run_fastapi_bg():
+        """Run FastAPI on port 8000 in background"""
+        from api import app
+        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+
+    api_thread = threading.Thread(target=run_fastapi_bg, daemon=True)
+    api_thread.start()
+
+    # Wait for API to start
+    time.sleep(2)
+
+    # Create and launch Gradio interface
+    demo = create_gradio_interface()
+
     if is_huggingface:
-        # On Hugging Face Spaces: mount both on same server
-        from api import app as fastapi_app
-
-        demo = create_gradio_interface()
-
-        # Mount Gradio UI at root path on the FastAPI app
-        app = gr.mount_gradio_app(fastapi_app, demo, path="/")
-
-        # Run the combined app
-        uvicorn.run(app, host="0.0.0.0", port=7860, log_level="info")
+        # On Hugging Face Spaces: Gradio on default port 7860
+        demo.launch(
+            server_name="0.0.0.0",
+            share=False,
+            show_error=True,
+        )
     else:
-        # Local development: run FastAPI and Gradio on separate ports
-        api_thread = threading.Thread(target=run_fastapi, daemon=True)
-        api_thread.start()
-
-        # Wait for API to start
-        time.sleep(2)
-
-        # Launch Gradio interface
-        demo = create_gradio_interface()
+        # Local development: Gradio on port 7861
         demo.launch(
             server_name="127.0.0.1",
             server_port=7861,
