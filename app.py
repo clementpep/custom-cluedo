@@ -13,8 +13,11 @@ import threading
 import time
 
 
-# API base URL
-# FastAPI runs on port 8000 (both locally and on HF)
+# Determine runtime environment
+import os
+IS_HUGGINGFACE = os.getenv("SPACE_ID") is not None
+
+# API base URL (only used in local mode)
 API_BASE = "http://localhost:8000"
 
 
@@ -48,24 +51,60 @@ def create_game(game_name: str, rooms_text: str, use_ai: bool):
         return f"❌ Maximum {settings.MAX_ROOMS} pièces autorisées", ""
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/create",
-            json={"game_name": game_name, "rooms": rooms, "use_ai": use_ai},
-            timeout=5,
-        )
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+            from models import CreateGameRequest
 
-        if response.status_code == 200:
-            data = response.json()
-            state.game_id = data["game_id"]
+            request = CreateGameRequest(
+                game_name=game_name,
+                rooms=rooms,
+                use_ai=use_ai
+            )
+            game = game_manager.create_game(request)
+
+            # Generate AI scenario if enabled
+            if game.use_ai and settings.USE_OPENAI:
+                from game_engine import DEFAULT_CHARACTERS
+                from ai_service import ai_service
+                import asyncio
+
+                try:
+                    scenario = asyncio.run(ai_service.generate_scenario(game.rooms, DEFAULT_CHARACTERS))
+                    if scenario:
+                        game.scenario = scenario
+                        game_manager.save_games()
+                except:
+                    pass  # AI is optional
+
+            state.game_id = game.game_id
             return (
                 f"✅ Enquête créée avec succès !\n\n"
-                f"🔑 Code d'Enquête : {data['game_id']}\n\n"
+                f"🔑 Code d'Enquête : {game.game_id}\n\n"
                 f"📤 Partagez ce code avec les autres joueurs pour qu'ils puissent rejoindre.\n\n"
                 f"ℹ️ Minimum {settings.MIN_PLAYERS} joueurs requis pour démarrer.",
-                data["game_id"],
+                game.game_id,
             )
         else:
-            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}", ""
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/create",
+                json={"game_name": game_name, "rooms": rooms, "use_ai": use_ai},
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                state.game_id = data["game_id"]
+                return (
+                    f"✅ Enquête créée avec succès !\n\n"
+                    f"🔑 Code d'Enquête : {data['game_id']}\n\n"
+                    f"📤 Partagez ce code avec les autres joueurs pour qu'ils puissent rejoindre.\n\n"
+                    f"ℹ️ Minimum {settings.MIN_PLAYERS} joueurs requis pour démarrer.",
+                    data["game_id"],
+                )
+            else:
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}", ""
 
     except Exception as e:
         return f"❌ Erreur lors de la création : {str(e)}", ""
@@ -79,20 +118,31 @@ def join_game(game_id: str, player_name: str):
         return "❌ Veuillez fournir le code d'enquête et votre nom"
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/join",
-            json={
-                "game_id": game_id.strip().upper(),
-                "player_name": player_name.strip(),
-            },
-            timeout=5,
-        )
+        game_id = game_id.strip().upper()
+        player_name = player_name.strip()
 
-        if response.status_code == 200:
-            data = response.json()
-            state.game_id = data["game_id"]
-            state.player_id = data["player_id"]
-            state.player_name = player_name.strip()
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+            from models import GameStatus
+
+            game = game_manager.get_game(game_id)
+            if not game:
+                return "❌ Erreur : Enquête introuvable"
+
+            if game.status != GameStatus.WAITING:
+                return "❌ Erreur : L'enquête a déjà commencé"
+
+            if game.is_full():
+                return "❌ Erreur : L'enquête est complète"
+
+            player = game_manager.join_game(game_id, player_name)
+            if not player:
+                return "❌ Erreur : Impossible de rejoindre l'enquête"
+
+            state.game_id = game_id
+            state.player_id = player.id
+            state.player_name = player_name
 
             return (
                 f"✅ Enquête rejointe avec succès !\n\n"
@@ -101,7 +151,30 @@ def join_game(game_id: str, player_name: str):
                 f"Allez dans l'onglet 🔎 Enquêter pour voir l'état de la partie."
             )
         else:
-            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/join",
+                json={
+                    "game_id": game_id,
+                    "player_name": player_name,
+                },
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                state.game_id = data["game_id"]
+                state.player_id = data["player_id"]
+                state.player_name = player_name
+
+                return (
+                    f"✅ Enquête rejointe avec succès !\n\n"
+                    f"👋 Bienvenue, {player_name} !\n\n"
+                    f"ℹ️ Attendez que le créateur démarre la partie.\n"
+                    f"Allez dans l'onglet 🔎 Enquêter pour voir l'état de la partie."
+                )
+            else:
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
         return f"❌ Erreur lors de la connexion : {str(e)}"
@@ -115,11 +188,17 @@ def start_game(game_id: str):
         return "❌ Aucune enquête sélectionnée"
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/{game_id.strip().upper()}/start", timeout=5
-        )
+        game_id = game_id.strip().upper()
 
-        if response.status_code == 200:
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+
+            success = game_manager.start_game(game_id)
+
+            if not success:
+                return "❌ Erreur : Impossible de démarrer. Vérifiez le nombre de joueurs et l'état de la partie."
+
             return (
                 f"✅ L'enquête a démarré !\n\n"
                 f"🎲 Les cartes ont été distribuées.\n"
@@ -127,7 +206,20 @@ def start_game(game_id: str):
                 f"➡️ Allez dans l'onglet 🔎 Enquêter pour voir votre dossier."
             )
         else:
-            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/{game_id}/start", timeout=5
+            )
+
+            if response.status_code == 200:
+                return (
+                    f"✅ L'enquête a démarré !\n\n"
+                    f"🎲 Les cartes ont été distribuées.\n"
+                    f"🔎 Tous les joueurs peuvent maintenant consulter leurs cartes et commencer à jouer.\n\n"
+                    f"➡️ Allez dans l'onglet 🔎 Enquêter pour voir votre dossier."
+                )
+            else:
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
         return f"❌ Erreur au démarrage : {str(e)}"
@@ -144,62 +236,105 @@ def get_player_view():
         )
 
     try:
-        response = requests.get(
-            f"{API_BASE}/games/{state.game_id}/player/{state.player_id}", timeout=5
-        )
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
 
-        if response.status_code == 200:
-            data = response.json()
+            game = game_manager.get_game(state.game_id)
 
-            # Format output
-            output = []
-            output.append(f"═══ 🔍 {data['game_name']} 🔍 ═══\n")
+            if not game:
+                return "❌ Erreur : Enquête introuvable"
 
-            status_map = {
-                "waiting": "⏳ En attente de joueurs",
-                "in_progress": "🎮 En cours",
-                "finished": "🏁 Terminée"
+            player = next((p for p in game.players if p.id == state.player_id), None)
+
+            if not player:
+                return "❌ Erreur : Joueur introuvable"
+
+            # Build safe view
+            other_players = [
+                {
+                    "name": p.name,
+                    "is_active": p.is_active,
+                    "card_count": len(p.cards)
+                }
+                for p in game.players if p.id != state.player_id
+            ]
+
+            current_player = game.get_current_player()
+
+            data = {
+                "game_id": game.game_id,
+                "game_name": game.name,
+                "status": game.status,
+                "scenario": game.scenario,
+                "rooms": game.rooms,
+                "characters": [c.name for c in game.characters],
+                "weapons": [w.name for w in game.weapons],
+                "my_cards": [c.name for c in player.cards],
+                "other_players": other_players,
+                "current_turn": current_player.name if current_player else None,
+                "is_my_turn": current_player.id == state.player_id if current_player else False,
+                "recent_turns": game.turns[-5:] if game.turns else [],
+                "winner": game.winner
             }
-            output.append(f"📊 Statut : {status_map.get(data['status'], data['status'])}\n")
-
-            if data.get("scenario"):
-                output.append(f"\n📜 Scénario :\n{data['scenario']}\n")
-
-            output.append(f"\n━━━ 🃏 VOS CARTES ━━━")
-            output.append("(Ces éléments NE SONT PAS la solution)")
-            for card in data["my_cards"]:
-                output.append(f"  🔸 {card}")
-
-            output.append(f"\n━━━ ℹ️ INFORMATIONS DE JEU ━━━")
-            output.append(f"🚪 Lieux : {', '.join(data['rooms'])}")
-            output.append(f"👤 Personnages : {', '.join(data['characters'])}")
-            output.append(f"🔪 Armes : {', '.join(data['weapons'])}")
-
-            output.append(f"\n━━━ 👥 DÉTECTIVES ━━━")
-            for player in data["other_players"]:
-                status_icon = "✅" if player["is_active"] else "❌"
-                output.append(
-                    f"  {status_icon} {player['name']} ({player['card_count']} cartes)"
-                )
-
-            if data["current_turn"]:
-                turn_marker = "👉 C'EST VOTRE TOUR !" if data["is_my_turn"] else ""
-                output.append(f"\n━━━ 🎯 TOUR ACTUEL ━━━")
-                output.append(f"🎲 {data['current_turn']} {turn_marker}")
-
-            if data.get("winner"):
-                output.append(f"\n\n🏆🏆🏆 VAINQUEUR : {data['winner']} 🏆🏆🏆")
-
-            if data["recent_turns"]:
-                output.append(f"\n━━━ 📰 ACTIONS RÉCENTES ━━━")
-                for turn in data["recent_turns"][-5:]:
-                    output.append(f"  • {turn['player_name']}: {turn['action']}")
-                    if turn.get("details"):
-                        output.append(f"    ↪ {turn['details']}")
-
-            return "\n".join(output)
         else:
-            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
+            # HTTP API call (local mode)
+            response = requests.get(
+                f"{API_BASE}/games/{state.game_id}/player/{state.player_id}", timeout=5
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+            else:
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
+
+        # Format output (common for both modes)
+        output = []
+        output.append(f"═══ 🔍 {data['game_name']} 🔍 ═══\n")
+
+        status_map = {
+            "waiting": "⏳ En attente de joueurs",
+            "in_progress": "🎮 En cours",
+            "finished": "🏁 Terminée"
+        }
+        output.append(f"📊 Statut : {status_map.get(data['status'], data['status'])}\n")
+
+        if data.get("scenario"):
+            output.append(f"\n📜 Scénario :\n{data['scenario']}\n")
+
+        output.append(f"\n━━━ 🃏 VOS CARTES ━━━")
+        output.append("(Ces éléments NE SONT PAS la solution)")
+        for card in data["my_cards"]:
+            output.append(f"  🔸 {card}")
+
+        output.append(f"\n━━━ ℹ️ INFORMATIONS DE JEU ━━━")
+        output.append(f"🚪 Lieux : {', '.join(data['rooms'])}")
+        output.append(f"👤 Personnages : {', '.join(data['characters'])}")
+        output.append(f"🔪 Armes : {', '.join(data['weapons'])}")
+
+        output.append(f"\n━━━ 👥 DÉTECTIVES ━━━")
+        for player in data["other_players"]:
+            status_icon = "✅" if player["is_active"] else "❌"
+            output.append(
+                f"  {status_icon} {player['name']} ({player['card_count']} cartes)"
+            )
+
+        if data["current_turn"]:
+            turn_marker = "👉 C'EST VOTRE TOUR !" if data["is_my_turn"] else ""
+            output.append(f"\n━━━ 🎯 TOUR ACTUEL ━━━")
+            output.append(f"🎲 {data['current_turn']} {turn_marker}")
+
+        if data.get("winner"):
+            output.append(f"\n\n🏆🏆🏆 VAINQUEUR : {data['winner']} 🏆🏆🏆")
+
+        if data["recent_turns"]:
+            output.append(f"\n━━━ 📰 ACTIONS RÉCENTES ━━━")
+            for turn in data["recent_turns"][-5:]:
+                output.append(f"  • {turn['player_name']}: {turn['action']}")
+                if turn.get("details"):
+                    output.append(f"    ↪ {turn['details']}")
+
+        return "\n".join(output)
 
     except Exception as e:
         return f"❌ Erreur de récupération : {str(e)}"
@@ -216,22 +351,42 @@ def make_suggestion(character: str, weapon: str, room: str):
         return "❌ Veuillez sélectionner un personnage, une arme et un lieu"
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/{state.game_id}/action",
-            json={
-                "game_id": state.game_id,
-                "player_id": state.player_id,
-                "action_type": "suggest",
-                "character": character,
-                "weapon": weapon,
-                "room": room,
-            },
-            timeout=5,
-        )
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+            from game_engine import GameEngine
 
-        if response.status_code == 200:
-            data = response.json()
-            message = data['message']
+            game = game_manager.get_game(state.game_id)
+
+            if not game:
+                return "❌ Erreur : Enquête introuvable"
+
+            # Verify it's the player's turn
+            if not GameEngine.can_player_act(game, state.player_id):
+                return "❌ Ce n'est pas votre tour !"
+
+            player = next((p for p in game.players if p.id == state.player_id), None)
+            if not player:
+                return "❌ Erreur : Joueur introuvable"
+
+            can_disprove, disprover, card = GameEngine.check_suggestion(
+                game,
+                state.player_id,
+                character,
+                weapon,
+                room
+            )
+
+            suggestion_text = f"Suggested: {character} with {weapon} in {room}"
+
+            if can_disprove and disprover and card:
+                message = f"{disprover} disproved the suggestion by showing: {card.name}"
+            else:
+                message = "No one could disprove the suggestion!"
+
+            GameEngine.add_turn_record(game, state.player_id, "suggest", suggestion_text)
+            game.next_turn()
+            game_manager.save_games()
 
             # Translate common responses
             if "disproved" in message.lower():
@@ -239,10 +394,34 @@ def make_suggestion(character: str, weapon: str, room: str):
             else:
                 return f"💭 {message}\n\n⚠️ Personne n'a pu réfuter votre théorie !"
         else:
-            error = response.json().get('detail', 'Erreur inconnue')
-            if "Not your turn" in error:
-                return "❌ Ce n'est pas votre tour !"
-            return f"❌ Erreur : {error}"
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/{state.game_id}/action",
+                json={
+                    "game_id": state.game_id,
+                    "player_id": state.player_id,
+                    "action_type": "suggest",
+                    "character": character,
+                    "weapon": weapon,
+                    "room": room,
+                },
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                message = data['message']
+
+                # Translate common responses
+                if "disproved" in message.lower():
+                    return f"💭 {message}\n\n➡️ Notez cette information pour vos déductions !"
+                else:
+                    return f"💭 {message}\n\n⚠️ Personne n'a pu réfuter votre théorie !"
+            else:
+                error = response.json().get('detail', 'Erreur inconnue')
+                if "Not your turn" in error:
+                    return "❌ Ce n'est pas votre tour !"
+                return f"❌ Erreur : {error}"
 
     except Exception as e:
         return f"❌ Erreur : {str(e)}"
@@ -259,22 +438,41 @@ def make_accusation(character: str, weapon: str, room: str):
         return "❌ Veuillez sélectionner un personnage, une arme et un lieu"
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/{state.game_id}/action",
-            json={
-                "game_id": state.game_id,
-                "player_id": state.player_id,
-                "action_type": "accuse",
-                "character": character,
-                "weapon": weapon,
-                "room": room,
-            },
-            timeout=5,
-        )
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+            from game_engine import GameEngine
+            from models import GameStatus
 
-        if response.status_code == 200:
-            data = response.json()
-            message = data['message']
+            game = game_manager.get_game(state.game_id)
+
+            if not game:
+                return "❌ Erreur : Enquête introuvable"
+
+            # Verify it's the player's turn
+            if not GameEngine.can_player_act(game, state.player_id):
+                return "❌ Ce n'est pas votre tour !"
+
+            player = next((p for p in game.players if p.id == state.player_id), None)
+            if not player:
+                return "❌ Erreur : Joueur introuvable"
+
+            accusation_text = f"Accused: {character} with {weapon} in {room}"
+
+            is_correct, message = GameEngine.process_accusation(
+                game,
+                state.player_id,
+                character,
+                weapon,
+                room
+            )
+
+            GameEngine.add_turn_record(game, state.player_id, "accuse", accusation_text)
+
+            if not is_correct and game.status == GameStatus.IN_PROGRESS:
+                game.next_turn()
+
+            game_manager.save_games()
 
             # Check if win or lose
             if "wins" in message.lower() or "correct" in message.lower():
@@ -284,10 +482,36 @@ def make_accusation(character: str, weapon: str, room: str):
             else:
                 return f"⚖️ {message}"
         else:
-            error = response.json().get('detail', 'Erreur inconnue')
-            if "Not your turn" in error:
-                return "❌ Ce n'est pas votre tour !"
-            return f"❌ Erreur : {error}"
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/{state.game_id}/action",
+                json={
+                    "game_id": state.game_id,
+                    "player_id": state.player_id,
+                    "action_type": "accuse",
+                    "character": character,
+                    "weapon": weapon,
+                    "room": room,
+                },
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                message = data['message']
+
+                # Check if win or lose
+                if "wins" in message.lower() or "correct" in message.lower():
+                    return f"🏆🎉 {message} 🎉🏆\n\nFélicitations pour avoir résolu le mystère !"
+                elif "wrong" in message.lower() or "eliminated" in message.lower():
+                    return f"❌ {message}\n\n😔 Vous avez été éliminé de l'enquête.\nVous pouvez toujours aider en réfutant les théories des autres."
+                else:
+                    return f"⚖️ {message}"
+            else:
+                error = response.json().get('detail', 'Erreur inconnue')
+                if "Not your turn" in error:
+                    return "❌ Ce n'est pas votre tour !"
+                return f"❌ Erreur : {error}"
 
     except Exception as e:
         return f"❌ Erreur : {str(e)}"
@@ -301,24 +525,50 @@ def pass_turn():
         return "❌ Vous n'êtes pas dans une enquête"
 
     try:
-        response = requests.post(
-            f"{API_BASE}/games/{state.game_id}/action",
-            json={
-                "game_id": state.game_id,
-                "player_id": state.player_id,
-                "action_type": "pass",
-            },
-            timeout=5,
-        )
+        if IS_HUGGINGFACE:
+            # Direct backend call
+            from game_manager import game_manager
+            from game_engine import GameEngine
 
-        if response.status_code == 200:
-            data = response.json()
+            game = game_manager.get_game(state.game_id)
+
+            if not game:
+                return "❌ Erreur : Enquête introuvable"
+
+            # Verify it's the player's turn
+            if not GameEngine.can_player_act(game, state.player_id):
+                return "❌ Ce n'est pas votre tour !"
+
+            player = next((p for p in game.players if p.id == state.player_id), None)
+            if not player:
+                return "❌ Erreur : Joueur introuvable"
+
+            # Pass turn
+            GameEngine.add_turn_record(game, state.player_id, "pass", "Passed turn")
+            game.next_turn()
+            game_manager.save_games()
+
             return f"✅ Tour passé\n\n➡️ C'est maintenant au tour du joueur suivant."
         else:
-            error = response.json().get('detail', 'Erreur inconnue')
-            if "Not your turn" in error:
-                return "❌ Ce n'est pas votre tour !"
-            return f"❌ Erreur : {error}"
+            # HTTP API call (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/{state.game_id}/action",
+                json={
+                    "game_id": state.game_id,
+                    "player_id": state.player_id,
+                    "action_type": "pass",
+                },
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return f"✅ Tour passé\n\n➡️ C'est maintenant au tour du joueur suivant."
+            else:
+                error = response.json().get('detail', 'Erreur inconnue')
+                if "Not your turn" in error:
+                    return "❌ Ce n'est pas votre tour !"
+                return f"❌ Erreur : {error}"
 
     except Exception as e:
         return f"❌ Erreur : {str(e)}"
@@ -622,38 +872,33 @@ def run_fastapi():
 
 
 if __name__ == "__main__":
-    import os
+    # IS_HUGGINGFACE is already defined at the top of the file
 
-    # Detect if running on Hugging Face Spaces
-    is_huggingface = os.getenv("SPACE_ID") is not None
+    if not IS_HUGGINGFACE:
+        # Local development: run FastAPI in background
+        def run_fastapi_bg():
+            """Run FastAPI on port 8000 in background"""
+            from api import app
+            uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
 
-    # Run FastAPI in background on port 8000 (both local and HF)
-    def run_fastapi_bg():
-        """Run FastAPI on port 8000 in background"""
-        from api import app
-        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+        api_thread = threading.Thread(target=run_fastapi_bg, daemon=True)
+        api_thread.start()
 
-    api_thread = threading.Thread(target=run_fastapi_bg, daemon=True)
-    api_thread.start()
-
-    # Wait for API to start
-    time.sleep(2)
+        # Wait for API to start
+        time.sleep(2)
 
     # Create and launch Gradio interface
     demo = create_gradio_interface()
 
-    # Set default tab to avoid "non-interactive tab" error
-    demo.load(lambda: None, None, None)
-
-    if is_huggingface:
-        # On Hugging Face Spaces: Gradio on default port 7860
+    if IS_HUGGINGFACE:
+        # On Hugging Face Spaces: Gradio only on port 7860 (no FastAPI)
         demo.launch(
             server_name="0.0.0.0",
             share=False,
             show_error=True,
         )
     else:
-        # Local development: Gradio on port 7861
+        # Local development: Gradio on port 7861, FastAPI on 8000
         demo.launch(
             server_name="127.0.0.1",
             server_port=7861,
