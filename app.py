@@ -582,61 +582,13 @@ def create_gradio_interface():
     """
     Create the Gradio interface.
     """
-    # Custom dark detective/horror theme
-    custom_theme = gr.themes.Base(
+    # Simplified dark theme to avoid ASGI errors
+    custom_theme = gr.themes.Soft(
         primary_hue="red",
         secondary_hue="slate",
-        neutral_hue="stone",
-        font=("ui-serif", "Georgia", "serif"),
-    ).set(
-        body_background_fill="*neutral_950",
-        body_background_fill_dark="*neutral_950",
-        body_text_color="*neutral_200",
-        body_text_color_dark="*neutral_200",
-        button_primary_background_fill="*primary_700",
-        button_primary_background_fill_dark="*primary_800",
-        button_primary_text_color="white",
-        button_secondary_background_fill="*neutral_700",
-        button_secondary_background_fill_dark="*neutral_800",
-        input_background_fill="*neutral_800",
-        input_background_fill_dark="*neutral_900",
-        input_border_color="*neutral_700",
-        block_background_fill="*neutral_900",
-        block_background_fill_dark="*neutral_900",
-        block_border_color="*neutral_700",
-        block_label_text_color="*primary_400",
-        block_title_text_color="*primary_300",
     )
 
-    custom_css = """
-    .gradio-container {
-        background: linear-gradient(180deg, #0a0a0a 0%, #1a0000 100%) !important;
-        font-family: 'Georgia', serif !important;
-    }
-    h1, h2, h3 {
-        color: #dc2626 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        font-family: 'Georgia', serif !important;
-        letter-spacing: 2px;
-    }
-    .tabs button {
-        background: #1c1917 !important;
-        border: 1px solid #44403c !important;
-        color: #d6d3d1 !important;
-    }
-    .tabs button[aria-selected="true"] {
-        background: #7c2d12 !important;
-        border-color: #dc2626 !important;
-        color: #fef2f2 !important;
-    }
-    .warning-text {
-        color: #fca5a5 !important;
-        font-style: italic;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
-    }
-    """
-
-    with gr.Blocks(title=settings.APP_NAME, theme=custom_theme, css=custom_css) as demo:
+    with gr.Blocks(title=settings.APP_NAME, theme=custom_theme) as demo:
         gr.Markdown(f"# 🔍 {settings.APP_NAME} 🔪")
         gr.Markdown("*Un mystère mortel vous attend dans votre propre lieu...*")
 
