@@ -616,30 +616,174 @@ def create_gradio_interface():
     )
 
     custom_css = """
+    @import url('https://fonts.googleapis.com/css2?family=Creepster&family=Cinzel:wght@400;600&display=swap');
+
     .gradio-container {
-        background: linear-gradient(180deg, #0a0a0a 0%, #1a0000 100%) !important;
-        font-family: 'Georgia', serif !important;
+        background:
+            linear-gradient(180deg, rgba(10,0,0,0.95) 0%, rgba(26,0,0,0.9) 50%, rgba(10,5,5,0.95) 100%),
+            repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px),
+            url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><filter id="noise"><feTurbulence baseFrequency="0.9" /></filter><rect width="100" height="100" filter="url(%23noise)" opacity="0.05"/></svg>') !important;
+        font-family: 'Cinzel', 'Georgia', serif !important;
+        position: relative;
     }
-    h1, h2, h3 {
-        color: #dc2626 !important;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        font-family: 'Georgia', serif !important;
-        letter-spacing: 2px;
+
+    .gradio-container::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.7) 100%);
+        pointer-events: none;
+        z-index: 0;
     }
+
+    h1 {
+        color: #8b0000 !important;
+        text-shadow:
+            0 0 10px rgba(139,0,0,0.8),
+            0 0 20px rgba(139,0,0,0.6),
+            3px 3px 6px rgba(0,0,0,0.9),
+            0 0 40px rgba(220,20,60,0.4);
+        font-family: 'Creepster', 'Georgia', cursive !important;
+        letter-spacing: 4px;
+        font-size: 3em !important;
+        animation: flicker 3s infinite alternate;
+    }
+
+    @keyframes flicker {
+        0%, 100% { opacity: 1; text-shadow: 0 0 10px rgba(139,0,0,0.8), 0 0 20px rgba(139,0,0,0.6), 3px 3px 6px rgba(0,0,0,0.9); }
+        50% { opacity: 0.95; text-shadow: 0 0 15px rgba(139,0,0,1), 0 0 25px rgba(139,0,0,0.8), 3px 3px 6px rgba(0,0,0,0.9); }
+    }
+
+    h2, h3 {
+        color: #b91c1c !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(185,28,28,0.5);
+        font-family: 'Cinzel', 'Georgia', serif !important;
+        letter-spacing: 3px;
+        border-bottom: 1px solid rgba(139,0,0,0.3);
+        padding-bottom: 8px;
+    }
+
     .tabs button {
-        background: #1c1917 !important;
+        background: linear-gradient(180deg, #1a0f0f 0%, #0a0000 100%) !important;
         border: 1px solid #44403c !important;
         color: #d6d3d1 !important;
+        transition: all 0.3s ease;
+        font-family: 'Cinzel', serif !important;
+        letter-spacing: 1px;
     }
+
+    .tabs button:hover {
+        background: linear-gradient(180deg, #2a0f0f 0%, #1a0000 100%) !important;
+        border-color: #8b0000 !important;
+        box-shadow: 0 0 15px rgba(139,0,0,0.5);
+    }
+
     .tabs button[aria-selected="true"] {
-        background: #7c2d12 !important;
+        background: linear-gradient(180deg, #8b0000 0%, #5a0000 100%) !important;
         border-color: #dc2626 !important;
         color: #fef2f2 !important;
+        box-shadow:
+            0 0 20px rgba(139,0,0,0.6),
+            inset 0 0 10px rgba(0,0,0,0.5);
     }
+
+    .gr-button {
+        background: linear-gradient(180deg, #7c2d12 0%, #5a1a0a 100%) !important;
+        border: 1px solid #8b0000 !important;
+        color: #fef2f2 !important;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        transition: all 0.3s ease;
+        font-family: 'Cinzel', serif !important;
+        letter-spacing: 1px;
+    }
+
+    .gr-button:hover {
+        background: linear-gradient(180deg, #8b0000 0%, #6a0000 100%) !important;
+        box-shadow: 0 0 20px rgba(139,0,0,0.7), 0 5px 15px rgba(0,0,0,0.5);
+        transform: translateY(-2px);
+    }
+
+    .gr-button-primary {
+        background: linear-gradient(180deg, #991b1b 0%, #7f1d1d 100%) !important;
+        border: 2px solid #dc2626 !important;
+        box-shadow: 0 0 15px rgba(153,27,27,0.5);
+    }
+
+    .gr-button-stop {
+        background: linear-gradient(180deg, #450a0a 0%, #1a0000 100%) !important;
+        border: 2px solid #7f1d1d !important;
+        animation: pulse-danger 2s infinite;
+    }
+
+    @keyframes pulse-danger {
+        0%, 100% { box-shadow: 0 0 10px rgba(127,29,29,0.5); }
+        50% { box-shadow: 0 0 25px rgba(127,29,29,0.9), 0 0 40px rgba(220,38,38,0.5); }
+    }
+
+    .gr-textbox, .gr-dropdown {
+        background: rgba(20,10,10,0.8) !important;
+        border: 1px solid #44403c !important;
+        color: #e7e5e4 !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .gr-textbox:focus, .gr-dropdown:focus {
+        border-color: #8b0000 !important;
+        box-shadow: 0 0 15px rgba(139,0,0,0.4), inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .gr-group, .gr-box {
+        background: rgba(15,5,5,0.6) !important;
+        border: 1px solid rgba(68,64,60,0.5) !important;
+        border-radius: 8px !important;
+        box-shadow:
+            0 4px 6px rgba(0,0,0,0.5),
+            inset 0 1px 2px rgba(139,0,0,0.1);
+    }
+
+    .gr-accordion {
+        background: rgba(26,10,10,0.7) !important;
+        border: 1px solid rgba(139,0,0,0.3) !important;
+        border-radius: 6px;
+    }
+
+    label {
+        color: #fca5a5 !important;
+        font-family: 'Cinzel', serif !important;
+        letter-spacing: 1px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+
+    .markdown {
+        color: #d6d3d1 !important;
+    }
+
     .warning-text {
         color: #fca5a5 !important;
         font-style: italic;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8), 0 0 10px rgba(252,165,165,0.3);
+    }
+
+    /* Effet de brouillard fantomatique */
+    @keyframes ghost-float {
+        0%, 100% { opacity: 0.05; transform: translateY(0px); }
+        50% { opacity: 0.15; transform: translateY(-20px); }
+    }
+
+    .gradio-container::after {
+        content: '';
+        position: fixed;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(139,0,0,0.03) 0%, transparent 50%);
+        animation: ghost-float 10s infinite ease-in-out;
+        pointer-events: none;
+        z-index: 1;
     }
     """
 
@@ -699,8 +843,8 @@ def create_gradio_interface():
             - Ne faites pas d'accusation tant que vous n'êtes pas sûr !
             - Les suggestions peuvent forcer les joueurs à révéler des informations
 
-            ## 🤖 Mode IA Desland (optionnel)
-            Active une narration générée par IA incarnée dans Leland... euh non c'est Desland Desland.
+            ## 🤖 Mode IA Narrateur (optionnel)
+            Active une narration générée par IA incarnée dans Desland, un vieux jardinier mystérieux qui semble toujours en savoir plus qu'il ne devrait... Il se trompe souvent sur son nom (Leland? Non, c'est Desland...) et parle de manière étrangement suspicieuse, comme s'il cachait quelque chose de très sombre.
             """
             )
 
@@ -722,10 +866,10 @@ def create_gradio_interface():
             )
 
             use_ai_checkbox = gr.Checkbox(
-                label="🤖 Activer le Narrateur IA (Lesland, euh non Desland)",
+                label="🤖 Activer le Narrateur IA - Lesland... euh non Desland",
                 value=False,
                 visible=settings.USE_OPENAI,
-                info="C'est Leland (euh non c'est Desland) le narrateur",
+                info="Un vieux jardinier suspicieux qui semble en savoir plus qu'il n'y paraît...",
             )
 
             create_btn = gr.Button(

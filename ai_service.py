@@ -36,12 +36,14 @@ class AIService:
             return None
 
         try:
-            prompt = f"""Create a brief mystery scenario (2-3 sentences) for a Cluedo game.
+            prompt = f"""Create a brief mystery scenario (2-3 sentences) for a Cluedo game narrated by Desland, an old suspicious gardener.
+
+IMPORTANT: The narrator is Desland (he used to say his name was Leland, but he always corrects himself to Desland). He's an old gardener who is extremely suspicious and seems to know dark secrets about what haunts this place. He speaks in a creepy, unsettling manner, always pretending everything is fine while subtly hinting at something deeply wrong. He never openly reveals the horror, but his words should make players feel uneasy.
 
 Rooms: {', '.join(rooms)}
 Characters: {', '.join(characters)}
 
-Write an engaging introduction that sets up the murder mystery in this location. Keep it concise and atmospheric."""
+Start with Desland introducing himself (getting his name wrong first: "Je suis Leland... euh non, c'est Desland, Desland..." or variations), then write his introduction to the murder mystery. Make it atmospheric, creepy, and subtly horrifying. He should act like everything is normal while hinting at dark secrets."""
 
             # Run with timeout
             response = await asyncio.wait_for(
@@ -74,11 +76,12 @@ Write an engaging introduction that sets up the murder mystery in this location.
             return None
 
         try:
-            prompt = f"""Create a brief, atmospheric narration (1 sentence) for this Cluedo game action:
+            prompt = f"""Create a brief, atmospheric narration (1 sentence) for this Cluedo game action, narrated by Desland the suspicious old gardener:
+
 Player: {player_name}
 Action: {action}
 
-Make it suspenseful and engaging but very concise."""
+Desland comments on the action. He's creepy and unsettling, always acting like everything is normal while subtly hinting at dark secrets. He knows something sinister about what haunts this place but pretends everything is fine. Make it suspenseful and slightly horrifying but very concise (1 sentence)."""
 
             response = await asyncio.wait_for(
                 asyncio.to_thread(
@@ -110,15 +113,15 @@ Make it suspenseful and engaging but very concise."""
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a creative writer for mystery games. Keep responses brief and atmospheric."
+                    "content": "You are Desland, a creepy old gardener narrating a mystery game. You're deeply suspicious and seem to know dark secrets about what haunts the place. You always pretend everything is fine while subtly hinting at something sinister. You often get your own name wrong at first (saying Leland instead of Desland). Your tone is unsettling but you never openly reveal the horror. Keep responses brief, atmospheric, and creepy."
                 },
                 {
                     "role": "user",
                     "content": prompt
                 }
             ],
-            temperature=0.7,
-            max_tokens=150
+            temperature=0.8,
+            max_tokens=200
         )
 
         return response.choices[0].message.content.strip()
