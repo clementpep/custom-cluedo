@@ -1,3 +1,24 @@
+---
+title: Cluedo Custom - Real-World Mystery Game
+emoji: 🔍
+colorFrom: red
+colorTo: purple
+sdk: gradio
+sdk_version: 5.0.0
+app_file: app.py
+pinned: false
+tags:
+  - gradio
+  - fastapi
+  - game
+  - multiplayer
+  - cluedo
+  - mystery
+  - python
+  - pydantic
+  - openai
+---
+
 # Cluedo Custom
 
 A web-based custom Cluedo (Clue) game that transforms real-world locations into interactive murder mystery games. Players can create games with custom room names matching their physical environment and play together in real-time.
