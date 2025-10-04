@@ -35,16 +35,16 @@ def create_game(game_name: str, rooms_text: str, use_ai: bool):
     Create a new game.
     """
     if not game_name or not rooms_text:
-        return "Please provide a game name and room list", ""
+        return "❌ Veuillez fournir un nom d'enquête et une liste de pièces", ""
 
     # Parse rooms (comma or newline separated)
     rooms = [r.strip() for r in rooms_text.replace("\n", ",").split(",") if r.strip()]
 
     if len(rooms) < settings.MIN_ROOMS:
-        return f"Please provide at least {settings.MIN_ROOMS} rooms", ""
+        return f"❌ Veuillez fournir au moins {settings.MIN_ROOMS} pièces", ""
 
     if len(rooms) > settings.MAX_ROOMS:
-        return f"Maximum {settings.MAX_ROOMS} rooms allowed", ""
+        return f"❌ Maximum {settings.MAX_ROOMS} pièces autorisées", ""
 
     try:
         response = requests.post(
@@ -57,15 +57,17 @@ def create_game(game_name: str, rooms_text: str, use_ai: bool):
             data = response.json()
             state.game_id = data["game_id"]
             return (
-                f"✓ Game created successfully!\n\nGame ID: {data['game_id']}\n\n"
-                f"Share this ID with other players so they can join.",
+                f"✅ Enquête créée avec succès !\n\n"
+                f"🔑 Code d'Enquête : {data['game_id']}\n\n"
+                f"📤 Partagez ce code avec les autres joueurs pour qu'ils puissent rejoindre.\n\n"
+                f"ℹ️ Minimum {settings.MIN_PLAYERS} joueurs requis pour démarrer.",
                 data["game_id"],
             )
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}", ""
+            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}", ""
 
     except Exception as e:
-        return f"Error creating game: {str(e)}", ""
+        return f"❌ Erreur lors de la création : {str(e)}", ""
 
 
 def join_game(game_id: str, player_name: str):
@@ -73,7 +75,7 @@ def join_game(game_id: str, player_name: str):
     Join an existing game.
     """
     if not game_id or not player_name:
-        return "Please provide both Game ID and your name"
+        return "❌ Veuillez fournir le code d'enquête et votre nom"
 
     try:
         response = requests.post(
@@ -91,12 +93,17 @@ def join_game(game_id: str, player_name: str):
             state.player_id = data["player_id"]
             state.player_name = player_name.strip()
 
-            return f"✓ Joined game successfully!\n\nWelcome, {player_name}!"
+            return (
+                f"✅ Enquête rejointe avec succès !\n\n"
+                f"👋 Bienvenue, {player_name} !\n\n"
+                f"ℹ️ Attendez que le créateur démarre la partie.\n"
+                f"Allez dans l'onglet 🔎 Enquêter pour voir l'état de la partie."
+            )
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"Error joining game: {str(e)}"
+        return f"❌ Erreur lors de la connexion : {str(e)}"
 
 
 def start_game(game_id: str):
@@ -104,7 +111,7 @@ def start_game(game_id: str):
     Start the game.
     """
     if not game_id:
-        return "No game selected"
+        return "❌ Aucune enquête sélectionnée"
 
     try:
         response = requests.post(
@@ -112,12 +119,17 @@ def start_game(game_id: str):
         )
 
         if response.status_code == 200:
-            return "✓ Game started! All players can now view their cards and begin playing."
+            return (
+                f"✅ L'enquête a démarré !\n\n"
+                f"🎲 Les cartes ont été distribuées.\n"
+                f"🔎 Tous les joueurs peuvent maintenant consulter leurs cartes et commencer à jouer.\n\n"
+                f"➡️ Allez dans l'onglet 🔎 Enquêter pour voir votre dossier."
+            )
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"Error starting game: {str(e)}"
+        return f"❌ Erreur au démarrage : {str(e)}"
 
 
 def get_player_view():
@@ -125,7 +137,10 @@ def get_player_view():
     Get current game state for the player.
     """
     if not state.game_id or not state.player_id:
-        return "Not in a game. Please create or join a game first."
+        return (
+            "❌ Vous n'êtes pas dans une enquête.\n\n"
+            "➡️ Créez une nouvelle enquête ou rejoignez-en une existante."
+        )
 
     try:
         response = requests.get(
@@ -137,49 +152,56 @@ def get_player_view():
 
             # Format output
             output = []
-            output.append(f"=== {data['game_name']} ===\n")
-            output.append(f"Status: {data['status']}\n")
+            output.append(f"═══ 🔍 {data['game_name']} 🔍 ═══\n")
+
+            status_map = {
+                "waiting": "⏳ En attente de joueurs",
+                "in_progress": "🎮 En cours",
+                "finished": "🏁 Terminée"
+            }
+            output.append(f"📊 Statut : {status_map.get(data['status'], data['status'])}\n")
 
             if data.get("scenario"):
-                output.append(f"\n{data['scenario']}\n")
+                output.append(f"\n📜 Scénario :\n{data['scenario']}\n")
 
-            output.append(f"\n--- Your Cards ---")
+            output.append(f"\n━━━ 🃏 VOS CARTES ━━━")
+            output.append("(Ces éléments NE SONT PAS la solution)")
             for card in data["my_cards"]:
-                output.append(f"  • {card}")
+                output.append(f"  🔸 {card}")
 
-            output.append(f"\n--- Game Info ---")
-            output.append(f"Rooms: {', '.join(data['rooms'])}")
-            output.append(f"Characters: {', '.join(data['characters'])}")
-            output.append(f"Weapons: {', '.join(data['weapons'])}")
+            output.append(f"\n━━━ ℹ️ INFORMATIONS DE JEU ━━━")
+            output.append(f"🚪 Lieux : {', '.join(data['rooms'])}")
+            output.append(f"👤 Personnages : {', '.join(data['characters'])}")
+            output.append(f"🔪 Armes : {', '.join(data['weapons'])}")
 
-            output.append(f"\n--- Players ---")
+            output.append(f"\n━━━ 👥 DÉTECTIVES ━━━")
             for player in data["other_players"]:
-                status = "✓" if player["is_active"] else "✗"
+                status_icon = "✅" if player["is_active"] else "❌"
                 output.append(
-                    f"  {status} {player['name']} ({player['card_count']} cards)"
+                    f"  {status_icon} {player['name']} ({player['card_count']} cartes)"
                 )
 
             if data["current_turn"]:
-                turn_marker = "→ YOUR TURN" if data["is_my_turn"] else ""
-                output.append(f"\n--- Current Turn ---")
-                output.append(f"{data['current_turn']} {turn_marker}")
+                turn_marker = "👉 C'EST VOTRE TOUR !" if data["is_my_turn"] else ""
+                output.append(f"\n━━━ 🎯 TOUR ACTUEL ━━━")
+                output.append(f"🎲 {data['current_turn']} {turn_marker}")
 
             if data.get("winner"):
-                output.append(f"\n🏆 WINNER: {data['winner']} 🏆")
+                output.append(f"\n\n🏆🏆🏆 VAINQUEUR : {data['winner']} 🏆🏆🏆")
 
             if data["recent_turns"]:
-                output.append(f"\n--- Recent Actions ---")
-                for turn in data["recent_turns"][-3:]:
-                    output.append(f"  {turn['player_name']}: {turn['action']}")
+                output.append(f"\n━━━ 📰 ACTIONS RÉCENTES ━━━")
+                for turn in data["recent_turns"][-5:]:
+                    output.append(f"  • {turn['player_name']}: {turn['action']}")
                     if turn.get("details"):
-                        output.append(f"    {turn['details']}")
+                        output.append(f"    ↪ {turn['details']}")
 
             return "\n".join(output)
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"Error fetching game state: {str(e)}"
+        return f"❌ Erreur de récupération : {str(e)}"
 
 
 def make_suggestion(character: str, weapon: str, room: str):
@@ -187,10 +209,10 @@ def make_suggestion(character: str, weapon: str, room: str):
     Make a suggestion.
     """
     if not state.game_id or not state.player_id:
-        return "Not in a game"
+        return "❌ Vous n'êtes pas dans une enquête"
 
     if not all([character, weapon, room]):
-        return "Please select character, weapon, and room"
+        return "❌ Veuillez sélectionner un personnage, une arme et un lieu"
 
     try:
         response = requests.post(
@@ -208,12 +230,21 @@ def make_suggestion(character: str, weapon: str, room: str):
 
         if response.status_code == 200:
             data = response.json()
-            return f"✓ {data['message']}"
+            message = data['message']
+
+            # Translate common responses
+            if "disproved" in message.lower():
+                return f"💭 {message}\n\n➡️ Notez cette information pour vos déductions !"
+            else:
+                return f"💭 {message}\n\n⚠️ Personne n'a pu réfuter votre théorie !"
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            error = response.json().get('detail', 'Erreur inconnue')
+            if "Not your turn" in error:
+                return "❌ Ce n'est pas votre tour !"
+            return f"❌ Erreur : {error}"
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Erreur : {str(e)}"
 
 
 def make_accusation(character: str, weapon: str, room: str):
@@ -221,10 +252,10 @@ def make_accusation(character: str, weapon: str, room: str):
     Make an accusation.
     """
     if not state.game_id or not state.player_id:
-        return "Not in a game"
+        return "❌ Vous n'êtes pas dans une enquête"
 
     if not all([character, weapon, room]):
-        return "Please select character, weapon, and room"
+        return "❌ Veuillez sélectionner un personnage, une arme et un lieu"
 
     try:
         response = requests.post(
@@ -242,12 +273,23 @@ def make_accusation(character: str, weapon: str, room: str):
 
         if response.status_code == 200:
             data = response.json()
-            return f"✓ {data['message']}"
+            message = data['message']
+
+            # Check if win or lose
+            if "wins" in message.lower() or "correct" in message.lower():
+                return f"🏆🎉 {message} 🎉🏆\n\nFélicitations pour avoir résolu le mystère !"
+            elif "wrong" in message.lower() or "eliminated" in message.lower():
+                return f"❌ {message}\n\n😔 Vous avez été éliminé de l'enquête.\nVous pouvez toujours aider en réfutant les théories des autres."
+            else:
+                return f"⚖️ {message}"
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            error = response.json().get('detail', 'Erreur inconnue')
+            if "Not your turn" in error:
+                return "❌ Ce n'est pas votre tour !"
+            return f"❌ Erreur : {error}"
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Erreur : {str(e)}"
 
 
 def pass_turn():
@@ -255,7 +297,7 @@ def pass_turn():
     Pass the current turn.
     """
     if not state.game_id or not state.player_id:
-        return "Not in a game"
+        return "❌ Vous n'êtes pas dans une enquête"
 
     try:
         response = requests.post(
@@ -270,12 +312,15 @@ def pass_turn():
 
         if response.status_code == 200:
             data = response.json()
-            return f"✓ {data['message']}"
+            return f"✅ Tour passé\n\n➡️ C'est maintenant au tour du joueur suivant."
         else:
-            return f"Error: {response.json().get('detail', 'Unknown error')}"
+            error = response.json().get('detail', 'Erreur inconnue')
+            if "Not your turn" in error:
+                return "❌ Ce n'est pas votre tour !"
+            return f"❌ Erreur : {error}"
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"❌ Erreur : {str(e)}"
 
 
 # Sample lists for dropdowns
@@ -342,33 +387,93 @@ def create_gradio_interface():
 
     with gr.Blocks(title=settings.APP_NAME, theme=custom_theme, css=custom_css) as demo:
         gr.Markdown(f"# 🔍 {settings.APP_NAME} 🔪")
-        gr.Markdown("*A deadly mystery awaits in your own location...*")
+        gr.Markdown("*Un mystère mortel vous attend dans votre propre lieu...*")
 
-        with gr.Tab("🕯️ Create Game"):
-            gr.Markdown("### 📜 Establish a New Mystery")
-            gr.Markdown("*Set the stage for a murder most foul...*")
+        # Rules section (collapsible)
+        with gr.Accordion("📖 Règles du Jeu & Guide", open=False):
+            gr.Markdown("""
+            ## 🎯 Objectif
+            Soyez le premier détective à résoudre le meurtre en identifiant correctement :
+            - **Le meurtrier** (personnage)
+            - **L'arme du crime** (arme)
+            - **Le lieu du crime** (pièce)
+
+            ## 🎮 Étapes de Jeu
+
+            ### 1️⃣ Création de la Partie
+            - Un joueur crée la partie en définissant 6-12 lieux personnalisés
+            - Partagez le **Code d'Enquête** avec les autres détectives
+
+            ### 2️⃣ Rejoindre l'Enquête
+            - Les détectives rejoignent avec le code partagé (min. 3 joueurs)
+            - Le créateur lance l'enquête quand tous sont prêts
+
+            ### 3️⃣ Distribution des Cartes
+            - Une solution secrète est créée (1 personnage + 1 arme + 1 lieu)
+            - Les cartes restantes sont distribuées équitablement entre les joueurs
+            - Vous voyez vos propres cartes = ces éléments **NE SONT PAS** la solution
+
+            ### 4️⃣ Votre Tour
+            Trois actions possibles :
+
+            **💭 Proposer une Théorie** (Suggestion)
+            - Proposez une combinaison personnage + arme + lieu
+            - Les autres joueurs essaient de réfuter en montrant UNE carte correspondante
+            - Seul VOUS voyez la carte révélée
+            - Utilisez cela pour éliminer des possibilités
+
+            **⚡ Accusation Finale**
+            - Si vous pensez connaître la solution, faites une accusation
+            - ✅ **Correct** = Vous gagnez immédiatement !
+            - ❌ **Faux** = Vous êtes éliminé de l'enquête (mais pouvez encore réfuter)
+
+            **⏭️ Passer le Tour**
+            - Passez votre tour si vous n'avez rien à proposer
+
+            ## 🏆 Conditions de Victoire
+            - Premier joueur à faire une **accusation correcte**
+            - Dernier joueur actif si tous les autres sont éliminés
+
+            ## 💡 Conseils Stratégiques
+            - Notez les cartes que vous voyez (sur papier)
+            - Déduisez les cartes des autres joueurs par élimination
+            - Ne faites pas d'accusation tant que vous n'êtes pas sûr !
+            - Les suggestions peuvent forcer les joueurs à révéler des informations
+
+            ## 🤖 Mode IA (optionnel)
+            Active une narration atmosphérique générée par IA pour plus d'immersion.
+            """)
+
+        with gr.Tab("🕯️ Créer une Partie"):
+            gr.Markdown("### 📜 Établir un Nouveau Mystère")
+            gr.Markdown("*Préparez la scène d'un meurtre des plus ignobles...*")
 
             game_name_input = gr.Textbox(
-                label="🎭 Investigation Name",
-                placeholder="The Manor House Murder"
+                label="🎭 Nom de l'Enquête",
+                placeholder="Le Meurtre du Manoir",
+                info="Donnez un nom évocateur à votre affaire"
             )
 
             rooms_input = gr.Textbox(
-                label=f"🚪 Crime Scene Locations ({settings.MIN_ROOMS}-{settings.MAX_ROOMS} rooms)",
-                placeholder="Library, Conservatory, Billiard Room, Study, Dining Hall, Ballroom",
+                label=f"🚪 Lieux de la Scène de Crime ({settings.MIN_ROOMS}-{settings.MAX_ROOMS} pièces)",
+                placeholder="Bibliothèque, Salon, Chambre, Bureau, Garage, Jardin",
                 lines=4,
+                info="Séparez les pièces par des virgules ou des retours à la ligne"
             )
 
             use_ai_checkbox = gr.Checkbox(
-                label="🤖 Enable AI Narrator (atmospheric storytelling)",
+                label="🤖 Activer le Narrateur IA (narration atmosphérique)",
                 value=False,
                 visible=settings.USE_OPENAI,
+                info="Génère une introduction immersive avec OpenAI"
             )
 
-            create_btn = gr.Button("🎲 Begin Investigation", variant="primary", size="lg")
-            create_output = gr.Textbox(label="📋 Case File", lines=5)
+            create_btn = gr.Button("🎲 Commencer l'Enquête", variant="primary", size="lg")
+            create_output = gr.Textbox(label="📋 Dossier de l'Affaire", lines=5, show_copy_button=True)
             game_id_display = gr.Textbox(
-                label="🔑 Investigation Code (share with detectives)", interactive=False
+                label="🔑 Code d'Enquête (partagez avec les autres détectives)",
+                interactive=False,
+                show_copy_button=True
             )
 
             create_btn.click(
@@ -377,90 +482,131 @@ def create_gradio_interface():
                 outputs=[create_output, game_id_display],
             )
 
-        with gr.Tab("🕵️ Join Investigation"):
-            gr.Markdown("### 👥 Enter the Crime Scene")
-            gr.Markdown("*Gather your fellow detectives...*")
+        with gr.Tab("🕵️ Rejoindre"):
+            gr.Markdown("### 👥 Entrer sur la Scène de Crime")
+            gr.Markdown("*Rassemblez vos confrères détectives...*")
 
-            join_game_id = gr.Textbox(label="🔑 Investigation Code", placeholder="ABC123")
-
-            join_player_name = gr.Textbox(
-                label="🎩 Detective Name", placeholder="Inspector Holmes"
-            )
-
-            join_btn = gr.Button("🚪 Enter Investigation", variant="primary", size="lg")
-            join_output = gr.Textbox(label="📋 Status", lines=3)
-
-            join_btn.click(
-                join_game, inputs=[join_game_id, join_player_name], outputs=join_output
-            )
-
-            gr.Markdown("---")
-            gr.Markdown("### 🎬 Begin the Investigation")
-
-            start_game_id = gr.Textbox(label="🔑 Investigation Code", placeholder="ABC123")
-
-            start_btn = gr.Button("⚡ Start the Mystery", variant="secondary", size="lg")
-            start_output = gr.Textbox(label="📋 Status", lines=2)
-
-            start_btn.click(start_game, inputs=start_game_id, outputs=start_output)
-
-        with gr.Tab("🔎 Investigate"):
-            gr.Markdown("### 📰 Investigation Board")
-            gr.Markdown("*Study the evidence and make your deductions...*")
-
-            refresh_btn = gr.Button("🔄 Update Case Notes", size="lg")
-            game_view = gr.Textbox(label="🗂️ Detective's Dossier", lines=20, max_lines=30)
-
-            refresh_btn.click(get_player_view, outputs=game_view)
-
-            gr.Markdown("---")
-            gr.Markdown("### 🔮 Theory of the Crime")
-            gr.Markdown("*Propose a hypothesis to test your fellow detectives...*")
-
-            with gr.Row():
-                suggest_character = gr.Dropdown(
-                    label="👤 Suspect", choices=DEFAULT_CHARACTERS
-                )
-                suggest_weapon = gr.Dropdown(label="🔪 Murder Weapon", choices=DEFAULT_WEAPONS)
-                suggest_room = gr.Dropdown(
-                    label="🚪 Crime Scene", choices=[]  # Will be populated from game
+            with gr.Group():
+                join_game_id = gr.Textbox(
+                    label="🔑 Code d'Enquête",
+                    placeholder="ABC123",
+                    info="Code fourni par le créateur de la partie"
                 )
 
-            suggest_btn = gr.Button("💭 Propose Theory", variant="primary", size="lg")
-            suggest_output = gr.Textbox(label="🗨️ Response", lines=2)
-
-            suggest_btn.click(
-                make_suggestion,
-                inputs=[suggest_character, suggest_weapon, suggest_room],
-                outputs=suggest_output,
-            )
-
-            gr.Markdown("---")
-            gr.Markdown("### ⚖️ Final Accusation")
-            gr.Markdown("### ⚠️ *Beware: A false accusation will eliminate you from the investigation!*")
-
-            with gr.Row():
-                accuse_character = gr.Dropdown(
-                    label="👤 The Murderer", choices=DEFAULT_CHARACTERS
+                join_player_name = gr.Textbox(
+                    label="🎩 Nom du Détective",
+                    placeholder="Inspecteur Dupont",
+                    info="Votre nom d'enquêteur"
                 )
-                accuse_weapon = gr.Dropdown(label="🔪 The Weapon", choices=DEFAULT_WEAPONS)
-                accuse_room = gr.Dropdown(label="🚪 The Location", choices=[])
 
-            accuse_btn = gr.Button("⚡ MAKE ACCUSATION", variant="stop", size="lg")
-            accuse_output = gr.Textbox(label="⚖️ Verdict", lines=2)
+                join_btn = gr.Button("🚪 Rejoindre l'Enquête", variant="primary", size="lg")
+                join_output = gr.Textbox(label="📋 Statut", lines=3, show_copy_button=True)
 
-            accuse_btn.click(
-                make_accusation,
-                inputs=[accuse_character, accuse_weapon, accuse_room],
-                outputs=accuse_output,
-            )
+                join_btn.click(
+                    join_game, inputs=[join_game_id, join_player_name], outputs=join_output
+                )
+
+            gr.Markdown("---")
+            gr.Markdown("### 🎬 Lancer l'Enquête")
+            gr.Markdown("*Une fois que tous les détectives sont présents (min. 3 joueurs)*")
+
+            with gr.Group():
+                start_game_id = gr.Textbox(
+                    label="🔑 Code d'Enquête",
+                    placeholder="ABC123",
+                    info="Seul le créateur peut lancer la partie"
+                )
+
+                start_btn = gr.Button("⚡ Démarrer le Mystère", variant="secondary", size="lg")
+                start_output = gr.Textbox(label="📋 Statut", lines=2)
+
+                start_btn.click(start_game, inputs=start_game_id, outputs=start_output)
+
+        with gr.Tab("🔎 Enquêter"):
+            gr.Markdown("### 📰 Tableau d'Enquête")
+            gr.Markdown("*Étudiez les preuves et faites vos déductions...*")
+
+            with gr.Group():
+                refresh_btn = gr.Button("🔄 Actualiser le Dossier", size="lg", variant="secondary")
+                game_view = gr.Textbox(
+                    label="🗂️ Dossier du Détective",
+                    lines=20,
+                    max_lines=30,
+                    show_copy_button=True,
+                    info="Cliquez sur Actualiser pour voir l'état actuel de la partie"
+                )
+
+                refresh_btn.click(get_player_view, outputs=game_view)
+
+            gr.Markdown("---")
+            gr.Markdown("### 🔮 Proposition de Théorie")
+            gr.Markdown("*Testez une hypothèse auprès des autres détectives...*")
+
+            with gr.Group():
+                with gr.Row():
+                    suggest_character = gr.Dropdown(
+                        label="👤 Suspect",
+                        choices=DEFAULT_CHARACTERS,
+                        info="Choisissez un personnage"
+                    )
+                    suggest_weapon = gr.Dropdown(
+                        label="🔪 Arme du Crime",
+                        choices=DEFAULT_WEAPONS,
+                        info="Choisissez une arme"
+                    )
+                    suggest_room = gr.Dropdown(
+                        label="🚪 Lieu du Crime",
+                        choices=[],  # Will be populated from game
+                        info="Choisissez un lieu"
+                    )
+
+                suggest_btn = gr.Button("💭 Proposer une Théorie", variant="primary", size="lg")
+                suggest_output = gr.Textbox(label="🗨️ Réponse", lines=3, show_copy_button=True)
+
+                suggest_btn.click(
+                    make_suggestion,
+                    inputs=[suggest_character, suggest_weapon, suggest_room],
+                    outputs=suggest_output,
+                )
+
+            gr.Markdown("---")
+            gr.Markdown("### ⚖️ Accusation Finale")
+            gr.Markdown("### ⚠️ *Attention : Une fausse accusation vous élimine de l'enquête !*")
+
+            with gr.Group():
+                with gr.Row():
+                    accuse_character = gr.Dropdown(
+                        label="👤 Le Meurtrier",
+                        choices=DEFAULT_CHARACTERS,
+                        info="Qui a commis le crime ?"
+                    )
+                    accuse_weapon = gr.Dropdown(
+                        label="🔪 L'Arme",
+                        choices=DEFAULT_WEAPONS,
+                        info="Avec quelle arme ?"
+                    )
+                    accuse_room = gr.Dropdown(
+                        label="🚪 Le Lieu",
+                        choices=[],
+                        info="Dans quel lieu ?"
+                    )
+
+                accuse_btn = gr.Button("⚡ FAIRE L'ACCUSATION", variant="stop", size="lg")
+                accuse_output = gr.Textbox(label="⚖️ Verdict", lines=3, show_copy_button=True)
+
+                accuse_btn.click(
+                    make_accusation,
+                    inputs=[accuse_character, accuse_weapon, accuse_room],
+                    outputs=accuse_output,
+                )
 
             gr.Markdown("---")
 
-            pass_btn = gr.Button("⏭️ Pass Turn", variant="secondary")
-            pass_output = gr.Textbox(label="📋 Status", lines=1)
+            with gr.Group():
+                pass_btn = gr.Button("⏭️ Passer Mon Tour", variant="secondary", size="lg")
+                pass_output = gr.Textbox(label="📋 Statut", lines=1)
 
-            pass_btn.click(pass_turn, outputs=pass_output)
+                pass_btn.click(pass_turn, outputs=pass_output)
 
     return demo
 
