@@ -627,15 +627,15 @@ if __name__ == "__main__":
     is_huggingface = os.getenv("SPACE_ID") is not None
 
     if is_huggingface:
-        # On Hugging Face Spaces: mount FastAPI app into Gradio
+        # On Hugging Face Spaces: mount both on same server
         from api import app as fastapi_app
 
         demo = create_gradio_interface()
 
-        # Mount FastAPI into Gradio app
+        # Mount Gradio UI at root path on the FastAPI app
         app = gr.mount_gradio_app(fastapi_app, demo, path="/")
 
-        # Uvicorn will serve the combined app on port 7860
+        # Run the combined app
         uvicorn.run(app, host="0.0.0.0", port=7860, log_level="info")
     else:
         # Local development: run FastAPI and Gradio on separate ports
