@@ -1,0 +1,192 @@
+🎯 1. Objectif du projet
+
+Créer une application web de jeu Cluedo Custom, permettant à plusieurs joueurs d’organiser et de jouer à un Cluedo en conditions réelles (dans leur environnement physique — bureaux, maison, école…).
+Le jeu adapte les règles et les éléments du Cluedo au lieu choisi par les joueurs, avec une interface simple et collaborative.
+
+👥 2. Public cible
+
+Groupes d’amis, collègues ou familles souhaitant transformer leur environnement en plateau de Cluedo.
+
+Animation d’événements, team-building, soirées.
+
+Aucune compétence technique requise pour les joueurs.
+
+🧩 3. Fonctionnalités principales
+A. Gestion des parties
+
+Créer une nouvelle partie
+
+Saisir un nom de partie.
+
+Choisir le nombre de salles et leurs noms (ex : "Cuisine", "Salle de réunion", "Terrasse"...).
+
+(Optionnel) Activer ou non le mode IA pour générer des descriptions ou scénarios.
+
+Rejoindre une partie existante
+
+Via un code ou lien de partage (UUID court).
+
+Le joueur saisit son nom ou pseudo.
+
+Lister les parties actives (en cours sur le serveur).
+
+B. Gestion du jeu
+
+Attribution automatique des rôles et cartes
+
+Personnages (ou avatars).
+
+Armes.
+
+Salles du lieu réel.
+
+Tour par tour
+
+L’application guide chaque joueur (texte ou vocal).
+
+Affiche les actions possibles (déplacer, accuser, questionner, révéler une carte…).
+
+Résolution automatique
+
+L’app gère les vérifications des accusations et la fin du jeu.
+
+Une interface affiche le gagnant et la solution.
+
+C. Interaction joueur
+
+Interface mobile first (compatible smartphone).
+
+Navigation intuitive :
+
+Vue "Salle actuelle"
+
+Bouton “Passer son tour”
+
+Bouton “Accuser”
+
+Historique minimal de la partie.
+
+Notifications légères pour indiquer le tour suivant ou un événement (ex : “Romain a fait une accusation !”).
+
+D. Option IA (activable par variable d’environnement)
+
+USE_OPENAI=true active la génération de contenu IA :
+
+Génération de scénario d’enquête personnalisé (intro, contexte, description des personnages).
+
+Suggestions de narration (ex : “Une ombre passe dans la salle…”).
+
+Reformulation fluide des messages de jeu.
+
+USE_OPENAI=false → mode classique sans génération IA, avec textes statiques.
+
+🏗️ 4. Architecture technique
+Front-end
+
+Framework léger : Gradio, Streamlit, ou React + FastAPI backend (selon préférences).
+
+Interface responsive avec navigation fluide (sans reload complet).
+
+Stockage minimal côté client (sessionStorage).
+
+Back-end
+
+FastAPI (Python) recommandé :
+
+Gestion des routes : création / rejoindre / état de partie / actions.
+
+Gestion du moteur de jeu (règles, tirages aléatoires, synchronisation).
+
+WebSocket pour actualisation en temps réel (si faisable sans surcharge CPU).
+
+Stockage en mémoire (Redis ou simple dictionnaire Python) pour les parties (limité à quelques dizaines de parties simultanées).
+
+Données persistées
+
+Pas de base de données lourde.
+
+Stockage temporaire dans un simple fichier JSON (games.json) pour les sessions actives.
+
+Déploiement
+
+Conteneur Docker léger (Python 3.11 slim).
+
+Hugging Face Space (Gradio ou API + frontend minimal).
+
+Exposition sur un seul port HTTP (7860 par défaut HF).
+
+Pas d’état long terme : la perte du conteneur efface les parties (ok pour usage récréatif).
+
+⚙️ 5. Variables d’environnement
+Nom	Description	Valeur par défaut
+USE_OPENAI	Active la génération IA	false
+OPENAI_API_KEY	Clé OpenAI (optionnelle)	""
+APP_NAME	Nom affiché dans l’interface	"Cluedo Custom"
+MAX_PLAYERS	Nombre max de joueurs par partie	8
+🧠 6. Comportement IA (si activé)
+
+Utiliser GPT (via OpenAI API) pour :
+
+Générer la mise en scène du lieu : “Le meurtre a eu lieu dans la Salle des serveurs…”
+
+Personnaliser les noms et descriptions de personnages.
+
+Ajouter du dialogue narratif léger pendant les tours.
+
+Les prompts doivent être courts et à température basse pour éviter les délais.
+
+Pas d’appel IA bloquant : timeout max 3 secondes par requête.
+
+🎨 7. Design & ergonomie
+
+Principes UX :
+
+Interface claire, à gros boutons.
+
+Lecture sur mobile en priorité.
+
+Couleurs contrastées : fond clair, éléments colorés selon statut.
+
+Écrans :
+
+Accueil : Créer / Rejoindre une partie.
+
+Configuration : Nom des salles + activer IA.
+
+Salle de jeu : Vue principale (tour actuel, actions possibles).
+
+Fin de partie : Résumé + rejouer.
+
+🔒 8. Gestion des sessions / multi-joueurs
+
+Génération d’un Game ID unique à 6 caractères.
+
+Stockage des sessions en mémoire avec la liste des joueurs connectés.
+
+Chaque joueur identifié par un UUID stocké côté navigateur.
+
+Synchronisation légère entre joueurs (polling toutes les 2–3 secondes au lieu de WebSocket si besoin d’économie CPU).
+
+🧪 9. Tests & validation
+
+Unitaires : logique du moteur de jeu (distribution, accusation, vérification).
+
+End-to-end : création et déroulement d’une partie complète à 3 joueurs simulés.
+
+Tests IA (optionnels) : vérification du format et temps de réponse des prompts.
+
+📦 10. Livrables attendus
+
+Dockerfile léger (< 300 MB image finale).
+
+Fichier requirements.txt clair et court.
+
+Script app.py ou main.py lançant l’app HF.
+
+Documentation README.md :
+
+Variables d’environnement
+
+Instructions pour exécution locale et Space.
+
+Description du mode IA.
