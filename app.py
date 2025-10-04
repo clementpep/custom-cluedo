@@ -642,6 +642,9 @@ if __name__ == "__main__":
     # Create and launch Gradio interface
     demo = create_gradio_interface()
 
+    # Set default tab to avoid "non-interactive tab" error
+    demo.load(lambda: None, None, None)
+
     if is_huggingface:
         # On Hugging Face Spaces: Gradio on default port 7860
         demo.launch(

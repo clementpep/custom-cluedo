@@ -24,14 +24,7 @@ from config import settings
 
 app = FastAPI(title=settings.APP_NAME)
 
-# Enable CORS for all origins (needed for Gradio interface)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS disabled - not needed when API and Gradio are on same host (localhost)
 
 
 class GameResponse(BaseModel):
