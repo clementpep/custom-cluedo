@@ -37,6 +37,7 @@ wheels/
 
 # Game data
 games.json
+vocab.txt
 
 # OS
 .DS_Store
