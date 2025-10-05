@@ -9,6 +9,57 @@ const api = axios.create({
   },
 });
 
+// Helper functions for easier usage
+export const createQuickGame = async (playerName, theme = 'classic') => {
+  const response = await api.post('/games/quick-create', { theme, player_name: playerName });
+  return response.data;
+};
+
+export const joinGame = async (gameId, playerName) => {
+  const response = await api.post('/games/join', { game_id: gameId, player_name: playerName });
+  return response.data;
+};
+
+export const startGame = async (gameId, playerId) => {
+  const response = await api.post(`/games/${gameId}/start`, { player_id: playerId });
+  return response.data;
+};
+
+export const getGameState = async (gameId, playerId) => {
+  const response = await api.get(`/games/${gameId}/state/${playerId}`);
+  return response.data;
+};
+
+export const rollDice = async (gameId, playerId) => {
+  const response = await api.post(`/games/${gameId}/roll`, { player_id: playerId });
+  return response.data;
+};
+
+export const makeSuggestion = async (gameId, playerId, suspect, weapon, room) => {
+  const response = await api.post(`/games/${gameId}/suggest`, {
+    player_id: playerId,
+    suspect,
+    weapon,
+    room,
+  });
+  return response.data;
+};
+
+export const makeAccusation = async (gameId, playerId, suspect, weapon, room) => {
+  const response = await api.post(`/games/${gameId}/accuse`, {
+    player_id: playerId,
+    suspect,
+    weapon,
+    room,
+  });
+  return response.data;
+};
+
+export const passTurn = async (gameId, playerId) => {
+  const response = await api.post(`/games/${gameId}/pass`, { player_id: playerId });
+  return response.data;
+};
+
 export const gameAPI = {
   // Get available themes
   getThemes: () => api.get('/themes'),
