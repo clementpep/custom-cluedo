@@ -5,7 +5,7 @@ Handles game logic, card distribution, turn management, and game rules.
 
 import random
 from typing import List, Optional, Tuple
-from models import Game, Card, CardType, Solution, GameStatus, Player
+from backend.models import Game, Card, CardType, Solution, GameStatus, Player
 from datetime import datetime
 
 

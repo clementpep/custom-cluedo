@@ -107,8 +107,8 @@ function Game() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-accent-400 text-xl">Chargement...</div>
+      <div className="min-h-screen bg-haunted-gradient flex items-center justify-center">
+        <div className="text-haunted-blood text-2xl animate-flicker">🕯️ Chargement des ténèbres...</div>
       </div>
     )
   }
@@ -118,43 +118,52 @@ function Game() {
   const canStart = me?.is_creator && gameState.status === 'waiting' && gameState.players.length >= 3
 
   return (
-    <div className="min-h-screen p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-haunted-gradient p-4 relative overflow-hidden">
+      {/* Animated fog effect */}
+      <div className="absolute inset-0 bg-fog-gradient opacity-10 animate-pulse-slow pointer-events-none"></div>
+
+      <div className="max-w-6xl mx-auto space-y-6 relative z-10">
         {/* Header */}
-        <div className="bg-dark-800 p-6 rounded-lg border border-dark-700">
+        <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-blood/30 shadow-[0_0_30px_rgba(139,0,0,0.2)]">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-accent-400">🔍 Partie {gameState.game_code}</h1>
-              <p className="text-dark-300">Joueur: {me?.name}</p>
+              <h1 className="text-4xl font-bold text-haunted-blood mb-1 animate-flicker drop-shadow-[0_0_10px_rgba(139,0,0,0.5)]">
+                🏰 Manoir {gameState.game_code}
+              </h1>
+              <p className="text-haunted-fog/80">👤 {me?.name} {me?.is_eliminated && '💀 (Éliminé)'}</p>
             </div>
             <div className="text-right">
-              <p className="text-dark-300">Status: {gameState.status === 'waiting' ? '⏳ En attente' : gameState.status === 'playing' ? '🎮 En cours' : '🏆 Terminée'}</p>
-              <p className="text-dark-400 text-sm">{gameState.players.length} joueurs</p>
+              <p className="text-haunted-fog">
+                {gameState.status === 'waiting' ? '⏳ En attente des âmes' :
+                 gameState.status === 'playing' ? '🎮 Enquête en cours' :
+                 '🏆 Mystère résolu'}
+              </p>
+              <p className="text-haunted-fog/60 text-sm">{gameState.players.length} âmes perdues</p>
             </div>
           </div>
           {canStart && (
             <button
               onClick={handleStartGame}
               disabled={actionLoading}
-              className="mt-4 px-6 py-2 bg-green-600 hover:bg-green-700 disabled:bg-dark-600 text-white font-semibold rounded-lg"
+              className="mt-4 px-6 py-2 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
             >
-              🚀 Démarrer la partie
+              🚀 Commencer l'enquête
             </button>
           )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Plateau */}
-          <div className="bg-dark-800 p-6 rounded-lg border border-dark-700">
-            <h2 className="text-xl font-bold text-accent-400 mb-4">🏰 Plateau</h2>
+          <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
+            <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">🏰 Les Pièces du Manoir</h2>
             <div className="space-y-2">
               {gameState.board?.rooms.map((room, idx) => (
-                <div key={idx} className="bg-dark-700 p-3 rounded">
-                  <div className="font-semibold text-white">{room.name}</div>
-                  <div className="text-sm text-dark-300">
-                    Joueurs: {room.player_ids.map(id =>
+                <div key={idx} className="bg-black/40 p-3 rounded border border-haunted-shadow hover:border-haunted-blood/50 transition-all">
+                  <div className="font-semibold text-haunted-fog">{room.name}</div>
+                  <div className="text-sm text-haunted-fog/60">
+                    👥 {room.player_ids.map(id =>
                       gameState.players.find(p => p.id === id)?.name || id
-                    ).join(', ') || 'Aucun'}
+                    ).join(', ') || 'Aucune âme'}
                   </div>
                 </div>
               ))}
@@ -162,14 +171,14 @@ function Game() {
           </div>
 
           {/* Mes cartes */}
-          <div className="bg-dark-800 p-6 rounded-lg border border-dark-700">
-            <h2 className="text-xl font-bold text-accent-400 mb-4">🃏 Mes cartes</h2>
+          <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
+            <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">🃏 Vos Indices</h2>
             <div className="space-y-2">
               {me?.cards.map((card, idx) => (
-                <div key={idx} className="bg-dark-700 px-4 py-2 rounded text-white">
+                <div key={idx} className="bg-black/40 px-4 py-2 rounded text-haunted-fog border border-haunted-shadow hover:border-haunted-blood/50 transition-all">
                   {card.type === 'suspect' && '👤 '}
                   {card.type === 'weapon' && '🔪 '}
-                  {card.type === 'room' && '🏠 '}
+                  {card.type === 'room' && '🏚️ '}
                   {card.name}
                 </div>
               ))}
@@ -179,9 +188,9 @@ function Game() {
 
         {/* Actions */}
         {gameState.status === 'playing' && (
-          <div className="bg-dark-800 p-6 rounded-lg border border-dark-700">
-            <h2 className="text-xl font-bold text-accent-400 mb-4">
-              {isMyTurn ? '⚡ À votre tour !' : '⏳ Tour de ' + gameState.players.find(p => p.id === gameState.current_player_id)?.name}
+          <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-blood/30">
+            <h2 className="text-2xl font-bold text-haunted-blood mb-4 animate-flicker">
+              {isMyTurn ? '⚡ À vous de jouer !' : '⏳ ' + gameState.players.find(p => p.id === gameState.current_player_id)?.name + ' enquête...'}
             </h2>
 
             {isMyTurn && (
@@ -191,14 +200,14 @@ function Game() {
                     <button
                       onClick={handleRollDice}
                       disabled={actionLoading}
-                      className="px-6 py-3 bg-accent-600 hover:bg-accent-700 disabled:bg-dark-600 text-white font-semibold rounded-lg"
+                      className="px-6 py-3 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
                     >
                       🎲 Lancer les dés
                     </button>
                     <button
                       onClick={handlePassTurn}
                       disabled={actionLoading}
-                      className="px-6 py-3 bg-dark-600 hover:bg-dark-500 text-white font-semibold rounded-lg"
+                      className="px-6 py-3 bg-black/40 hover:bg-black/60 disabled:opacity-50 text-haunted-fog border-2 border-haunted-shadow font-semibold rounded-lg transition-all"
                     >
                       ⏭️ Passer
                     </button>
@@ -207,11 +216,11 @@ function Game() {
                   <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm text-dark-300 mb-2">Suspect</label>
+                        <label className="block text-sm text-haunted-fog mb-2">👤 Suspect</label>
                         <select
                           value={selectedSuspect}
                           onChange={(e) => setSelectedSuspect(e.target.value)}
-                          className="w-full px-3 py-2 bg-dark-700 text-white rounded border border-dark-600"
+                          className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
                           {gameState.board?.suspects.map((s, i) => (
@@ -220,11 +229,11 @@ function Game() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm text-dark-300 mb-2">Arme</label>
+                        <label className="block text-sm text-haunted-fog mb-2">🔪 Arme</label>
                         <select
                           value={selectedWeapon}
                           onChange={(e) => setSelectedWeapon(e.target.value)}
-                          className="w-full px-3 py-2 bg-dark-700 text-white rounded border border-dark-600"
+                          className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
                           {gameState.board?.weapons.map((w, i) => (
@@ -233,11 +242,11 @@ function Game() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm text-dark-300 mb-2">Pièce</label>
+                        <label className="block text-sm text-haunted-fog mb-2">🏚️ Pièce</label>
                         <select
                           value={selectedRoom}
                           onChange={(e) => setSelectedRoom(e.target.value)}
-                          className="w-full px-3 py-2 bg-dark-700 text-white rounded border border-dark-600"
+                          className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
                           {gameState.board?.rooms.map((r, i) => (
@@ -250,21 +259,21 @@ function Game() {
                       <button
                         onClick={handleSuggestion}
                         disabled={actionLoading}
-                        className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-dark-600 text-white font-semibold rounded-lg"
+                        className="px-6 py-3 bg-haunted-purple hover:bg-purple-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(107,33,168,0.5)] border border-purple-900"
                       >
                         💬 Suggérer
                       </button>
                       <button
                         onClick={handleAccusation}
                         disabled={actionLoading}
-                        className="px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-dark-600 text-white font-semibold rounded-lg"
+                        className="px-6 py-3 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
                       >
                         ⚠️ Accuser
                       </button>
                       <button
                         onClick={handlePassTurn}
                         disabled={actionLoading}
-                        className="px-6 py-3 bg-dark-600 hover:bg-dark-500 text-white font-semibold rounded-lg"
+                        className="px-6 py-3 bg-black/40 hover:bg-black/60 disabled:opacity-50 text-haunted-fog border-2 border-haunted-shadow font-semibold rounded-lg transition-all"
                       >
                         ⏭️ Passer
                       </button>
@@ -277,11 +286,11 @@ function Game() {
         )}
 
         {/* Historique */}
-        <div className="bg-dark-800 p-6 rounded-lg border border-dark-700">
-          <h2 className="text-xl font-bold text-accent-400 mb-4">📜 Historique</h2>
-          <div className="space-y-2">
+        <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
+          <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">📜 Journal de l'Enquête</h2>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {gameState.history?.slice(-10).reverse().map((event, idx) => (
-              <div key={idx} className="text-dark-300 text-sm border-l-2 border-accent-600 pl-3 py-1">
+              <div key={idx} className="text-haunted-fog/80 text-sm border-l-2 border-haunted-blood pl-3 py-1 hover:bg-black/20 transition-all">
                 {event}
               </div>
             ))}

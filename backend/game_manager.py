@@ -6,9 +6,9 @@ Provides in-memory storage and game lifecycle management.
 import json
 import os
 from typing import Dict, Optional, List
-from models import Game, Player, CreateGameRequest, GameStatus
-from game_engine import GameEngine
-from config import settings
+from backend.models import Game, Player, CreateGameRequest, GameStatus
+from backend.game_engine import GameEngine
+from backend.config import settings
 
 
 class GameManager:

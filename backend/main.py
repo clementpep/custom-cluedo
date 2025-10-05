@@ -11,10 +11,10 @@ from pydantic import BaseModel
 from typing import Optional, List
 import os
 
-from models import CreateGameRequest, GameStatus
-from game_manager import game_manager
-from game_engine import GameEngine
-from defaults import get_default_game_config, DEFAULT_THEMES
+from backend.models import CreateGameRequest, GameStatus
+from backend.game_manager import game_manager
+from backend.game_engine import GameEngine
+from backend.defaults import get_default_game_config, DEFAULT_THEMES
 
 app = FastAPI(title="Cluedo Custom API")
 
