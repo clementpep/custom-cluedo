@@ -109,7 +109,7 @@ Desland comments on the action. He's creepy and unsettling, always acting like e
             return ""
 
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-5-nano",
             messages=[
                 {
                     "role": "system",
