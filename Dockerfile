@@ -1,27 +1,27 @@
-# Use Python 3.11 slim image for smaller size
-FROM python:3.11-slim
+# Stage 1: Build frontend
+FROM node:18-alpine AS frontend-build
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install
+COPY frontend/ ./
+RUN npm run build
 
-# Set working directory
+# Stage 2: Python backend
+FROM python:3.11-slim
 WORKDIR /app
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PORT=7860
-
-# Install dependencies
-COPY requirements.txt .
+# Install backend deps
+COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application files
-COPY . .
+# Copy backend
+COPY backend/ ./backend/
 
-# Expose port
+# Copy built frontend
+COPY --from=frontend-build /app/frontend/dist ./frontend/dist
+
+# Expose port for Hugging Face
 EXPOSE 7860
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:7860/')"
-
-# Run the application
-CMD ["python", "app.py"]
+# Start server
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "7860"]

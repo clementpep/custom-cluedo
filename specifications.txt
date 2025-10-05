@@ -14,21 +14,21 @@ L’hôte choisit :
 
 Un titre de partie (ex : Meurtre au coworking ou Drame à la coloc).
 
-Une tonalité narrative : 🕵️ Sérieuse, 😂 Parodique, 🧙‍♂️ Fantastique, 🎬 Thriller, etc.
+* Créer une nouvelle partie
 
-Optionnel : un prompt personnalisé pour l’IA (ex : “style Agatha Christie avec humour noir”).
+  * Saisir un nom de partie.
 
-🏠 Étape 2 — Création des “Lieux”
+  * Choisir le nombre de salles et leurs noms (ex : "Cuisine", "Salle de réunion", "Terrasse"...).
 
-L’hôte définit les pièces du plateau :
+  * (Optionnel) Activer ou non le mode IA pour générer des descriptions ou scénarios.
 
-En tapant leurs noms : Cuisine, Toit, Salle serveurs, Cafétéria…
+* Rejoindre une partie existante
 
-Le must serait d'avoir une interface drag & drop (petit éditeur de plan simplifié avec des tuiles).
+  * Via un code ou lien de partage (UUID court).
 
-💡 L’ordre spatial a un impact : les joueurs doivent “se déplacer” virtuellement d’un lieu à l’autre.
+  * Le joueur saisit son nom ou pseudo.
 
-🔪 Étape 3 — Liste des “Armes” et “Suspects”
+  * Lister les parties actives (en cours sur le serveur).
 
 L’hôte ajoute les suspects (réels ou fictifs).
 
@@ -57,8 +57,9 @@ Soit une carte générée dynamiquement via JSON de la config hôte.
 
 Lorsqu'au moins 3 joueurs (dont l'hote) sont connectés, l'hote peut lancer la partie
 
-🚶 3. Déroulement du jeu
-🎲 Tour par tour
+Grille a cocher pour éliminer les possibilités
+
+Navigation intuitive :
 
 Chaque joueur :
 
@@ -77,15 +78,15 @@ L’IA :
 
 Garde trace des suggestions.
 
-Indique si un autre joueur peut infirmer la théorie (en montrant une carte virtuelle).
-
-Peut glisser des indices narratifs ou des fausses pistes : “Une odeur de café froid flotte près du bureau…”
+Reformulation fluide des messages de jeu.
 
 🧠 4. Feuille d’enquête numérique
 
-Chaque joueur dispose d’une grille (cases cliquables ✅❌) :
+🏗️ 4. Architecture technique
 
-Colonnes : Suspects / Armes / Lieux
+Front-end
+
+Framework léger : React + FastAPI backend (selon préférences).
 
 
 🎭 5. L’IA comme moteur de narration dynamique
@@ -118,8 +119,63 @@ Multi-joueurs	WebSocket léger (ou polling HTTP + threads)
 
 💬 Exemple de tour complet
 
-👤 Toi : Selection de "Claire" avec l'arme "Clé USB" dans le lieu "Cuisine"
-🤖 IA : “Et toi ça te semble logique que Claire ait assassiné Daniel à côté de l’étendoir, en plein après-midi, avec un périphérique USB ? 🧠 Mauvais câble, détective.”
-(Un joueur montre virtuellement la carte “Claire”)
-✅ Tu coches “Claire” comme innocente.
-🔄 Prochain tour.
+Hugging Face Space (Gradio ou API + frontend minimal).
+
+Exposition sur un seul port HTTP (7860 par défaut HF).
+
+Pas d’état long terme : la perte du conteneur efface les parties (ok pour usage récréatif).
+
+⚙️ 5. Variables d’environnement
+Nom	Description	Valeur par défaut
+USE_OPENAI	Active la génération IA	false
+OPENAI_API_KEY	Clé OpenAI (optionnelle)	""
+APP_NAME	Nom affiché dans l’interface	"Cluedo Custom"
+MAX_PLAYERS	Nombre max de joueurs par partie	8
+
+🧠 6. Comportement IA (si activé)
+
+Utiliser GPT (via OpenAI API) pour :
+
+Générer la mise en scène du lieu : “Le meurtre a eu lieu dans la Salle des serveurs…”
+
+Personnaliser les noms et descriptions de personnages.
+
+Ajouter du dialogue narratif léger pendant les tours. Le bot s'appelle 
+
+Les prompts doivent être courts et à température basse pour éviter les délais.
+
+Pas d’appel IA bloquant : timeout max 3 secondes par requête.
+
+🔒 8. Gestion des sessions / multi-joueurs
+
+Génération d’un Game ID unique à 6 caractères.
+
+Stockage des sessions en mémoire avec la liste des joueurs connectés.
+
+Chaque joueur identifié par un UUID stocké côté navigateur.
+
+Synchronisation légère entre joueurs (polling toutes les 2–3 secondes au lieu de WebSocket si besoin d’économie CPU).
+
+🧪 9. Tests & validation
+
+Unitaires : logique du moteur de jeu (distribution, accusation, vérification).
+
+End-to-end : création et déroulement d’une partie complète à 3 joueurs simulés.
+
+Tests IA (optionnels) : vérification du format et temps de réponse des prompts.
+
+📦 10. Livrables attendus
+
+Dockerfile léger (< 300 MB image finale).
+
+Fichier requirements.txt clair et court.
+
+Script app.py ou main.py lançant l’app HF.
+
+Documentation README.md :
+
+Variables d’environnement
+
+Instructions pour exécution locale et Space.
+
+Description du mode IA.
