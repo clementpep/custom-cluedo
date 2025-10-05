@@ -73,6 +73,20 @@ class InvestigationNote(BaseModel):
     status: str  # "unknown", "eliminated", "maybe"
 
 
+class RoomPosition(BaseModel):
+    """Position of a room on the board."""
+    name: str
+    x: int  # Grid X position
+    y: int  # Grid Y position
+
+
+class BoardLayout(BaseModel):
+    """Board layout configuration."""
+    rooms: List[RoomPosition] = Field(default_factory=list)
+    grid_width: int = 8
+    grid_height: int = 8
+
+
 class Game(BaseModel):
     """Represents a complete game instance."""
     game_id: str
@@ -109,6 +123,9 @@ class Game(BaseModel):
 
     # Investigation notes (for UI)
     investigation_notes: List[InvestigationNote] = Field(default_factory=list)
+
+    # Board layout
+    board_layout: Optional[BoardLayout] = None
 
     # AI-generated content
     scenario: Optional[str] = None
@@ -160,6 +177,7 @@ class CreateGameRequest(BaseModel):
     custom_weapons: List[str]
     custom_suspects: List[str]
     use_ai: bool = False
+    board_layout: Optional[BoardLayout] = None
 
 
 class JoinGameRequest(BaseModel):

@@ -14,21 +14,21 @@ Aucune compétence technique requise pour les joueurs.
 🧩 3. Fonctionnalités principales
 A. Gestion des parties
 
-Créer une nouvelle partie
+* Créer une nouvelle partie
 
-Saisir un nom de partie.
+  * Saisir un nom de partie.
 
-Choisir le nombre de salles et leurs noms (ex : "Cuisine", "Salle de réunion", "Terrasse"...).
+  * Choisir le nombre de salles et leurs noms (ex : "Cuisine", "Salle de réunion", "Terrasse"...).
 
-(Optionnel) Activer ou non le mode IA pour générer des descriptions ou scénarios.
+  * (Optionnel) Activer ou non le mode IA pour générer des descriptions ou scénarios.
 
-Rejoindre une partie existante
+* Rejoindre une partie existante
 
-Via un code ou lien de partage (UUID court).
+  * Via un code ou lien de partage (UUID court).
 
-Le joueur saisit son nom ou pseudo.
+  * Le joueur saisit son nom ou pseudo.
 
-Lister les parties actives (en cours sur le serveur).
+  * Lister les parties actives (en cours sur le serveur).
 
 B. Gestion du jeu
 
@@ -56,6 +56,8 @@ C. Interaction joueur
 
 Interface mobile first (compatible smartphone).
 
+Grille a cocher pour éliminer les possibilités
+
 Navigation intuitive :
 
 Vue "Salle actuelle"
@@ -74,16 +76,15 @@ USE_OPENAI=true active la génération de contenu IA :
 
 Génération de scénario d’enquête personnalisé (intro, contexte, description des personnages).
 
-Suggestions de narration (ex : “Une ombre passe dans la salle…”).
-
 Reformulation fluide des messages de jeu.
 
 USE_OPENAI=false → mode classique sans génération IA, avec textes statiques.
 
 🏗️ 4. Architecture technique
+
 Front-end
 
-Framework léger : Gradio, Streamlit, ou React + FastAPI backend (selon préférences).
+Framework léger : React + FastAPI backend (selon préférences).
 
 Interface responsive avec navigation fluide (sans reload complet).
 
@@ -123,6 +124,7 @@ USE_OPENAI	Active la génération IA	false
 OPENAI_API_KEY	Clé OpenAI (optionnelle)	""
 APP_NAME	Nom affiché dans l’interface	"Cluedo Custom"
 MAX_PLAYERS	Nombre max de joueurs par partie	8
+
 🧠 6. Comportement IA (si activé)
 
 Utiliser GPT (via OpenAI API) pour :
@@ -131,31 +133,11 @@ Générer la mise en scène du lieu : “Le meurtre a eu lieu dans la Salle des 
 
 Personnaliser les noms et descriptions de personnages.
 
-Ajouter du dialogue narratif léger pendant les tours.
+Ajouter du dialogue narratif léger pendant les tours. Le bot s'appelle 
 
 Les prompts doivent être courts et à température basse pour éviter les délais.
 
 Pas d’appel IA bloquant : timeout max 3 secondes par requête.
-
-🎨 7. Design & ergonomie
-
-Principes UX :
-
-Interface claire, à gros boutons.
-
-Lecture sur mobile en priorité.
-
-Couleurs contrastées : fond clair, éléments colorés selon statut.
-
-Écrans :
-
-Accueil : Créer / Rejoindre une partie.
-
-Configuration : Nom des salles + activer IA.
-
-Salle de jeu : Vue principale (tour actuel, actions possibles).
-
-Fin de partie : Résumé + rejouer.
 
 🔒 8. Gestion des sessions / multi-joueurs
 

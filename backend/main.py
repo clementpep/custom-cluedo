@@ -51,6 +51,17 @@ async def quick_create_game(req: QuickCreateRequest):
     try:
         config = get_default_game_config(req.theme)
 
+        # Create default board layout
+        from backend.models import BoardLayout, RoomPosition
+        board_layout = BoardLayout(
+            rooms=[
+                RoomPosition(name=room, x=i % 3, y=i // 3)
+                for i, room in enumerate(config["rooms"])
+            ],
+            grid_width=3,
+            grid_height=2
+        )
+
         game_req = CreateGameRequest(
             game_name=config["name"],
             narrative_tone=config["tone"],
@@ -58,7 +69,8 @@ async def quick_create_game(req: QuickCreateRequest):
             rooms=config["rooms"],
             custom_weapons=config["weapons"],
             custom_suspects=config["suspects"],
-            use_ai=False
+            use_ai=False,
+            board_layout=board_layout
         )
 
         game = game_manager.create_game(game_req)
@@ -149,6 +161,7 @@ async def get_game_state(game_id: str, player_id: str):
         "my_cards": [{"name": c.name, "type": c.card_type.value} for c in player.cards],
         "my_position": player.current_room_index,
         "current_room": game.rooms[player.current_room_index] if game.rooms else None,
+        "board_layout": game.board_layout.model_dump() if game.board_layout else None,
         "players": [
             {
                 "name": p.name,
@@ -240,6 +253,27 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
         game, req.player_id, req.suspect, req.weapon, req.room
     )
 
+    # Get player name
+    player = next((p for p in game.players if p.id == req.player_id), None)
+    player_name = player.name if player else "Inconnu"
+
+    # Generate AI comment if enabled
+    ai_comment = None
+    if game.use_ai:
+        try:
+            from ai_service import ai_service
+            import asyncio
+            ai_comment = await ai_service.generate_suggestion_comment(
+                player_name,
+                req.suspect,
+                req.weapon,
+                req.room,
+                can_disprove,
+                game.narrative_tone
+            )
+        except Exception as e:
+            print(f"AI comment generation failed: {e}")
+
     result = {
         "suggestion": f"{req.suspect} + {req.weapon} + {req.room}",
         "was_disproven": can_disprove,
@@ -247,12 +281,13 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
         "card_shown": card.name if card else None
     }
 
-    # Record turn
+    # Record turn with AI comment
     GameEngine.add_turn_record(
         game,
         req.player_id,
         "suggest",
-        result["suggestion"]
+        result["suggestion"],
+        ai_comment=ai_comment
     )
 
     game.next_turn()
@@ -284,12 +319,33 @@ async def make_accusation(game_id: str, req: AccusationRequest):
         game, req.player_id, req.suspect, req.weapon, req.room
     )
 
-    # Record turn
+    # Get player name
+    player = next((p for p in game.players if p.id == req.player_id), None)
+    player_name = player.name if player else "Inconnu"
+
+    # Generate AI comment if enabled
+    ai_comment = None
+    if game.use_ai:
+        try:
+            from ai_service import ai_service
+            ai_comment = await ai_service.generate_accusation_comment(
+                player_name,
+                req.suspect,
+                req.weapon,
+                req.room,
+                is_correct,
+                game.narrative_tone
+            )
+        except Exception as e:
+            print(f"AI comment generation failed: {e}")
+
+    # Record turn with AI comment
     GameEngine.add_turn_record(
         game,
         req.player_id,
         "accuse",
-        f"{req.suspect} + {req.weapon} + {req.room}"
+        f"{req.suspect} + {req.weapon} + {req.room}",
+        ai_comment=ai_comment
     )
 
     if not is_correct and game.status == GameStatus.IN_PROGRESS:

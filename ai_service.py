@@ -27,7 +27,7 @@ class AIService:
         self,
         rooms: list[str],
         characters: list[str],
-        narrative_tone: str = "🕵️ Sérieuse"
+        narrative_tone: str = "🕵️ Sérieuse",
     ) -> Optional[str]:
         """
         Generate a mystery scenario based on the game setup.
@@ -49,11 +49,7 @@ Start with Desland introducing himself (getting his name wrong: "Je suis Leland.
 
             # Run with timeout
             response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._generate_text,
-                    prompt
-                ),
-                timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
             )
 
             return response
@@ -72,7 +68,7 @@ Start with Desland introducing himself (getting his name wrong: "Je suis Leland.
         weapon: str,
         room: str,
         was_disproven: bool,
-        narrative_tone: str = "🕵️ Sérieuse"
+        narrative_tone: str = "🕵️ Sérieuse",
     ) -> Optional[str]:
         """
         Generate a sarcastic comment from Desland about a suggestion.
@@ -98,11 +94,7 @@ Make Desland's comment fit the narrative tone: {narrative_tone}
 Be sarcastic, condescending, and incisive. Mock the logic (or lack thereof) of the suggestion."""
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._generate_text,
-                    prompt
-                ),
-                timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
             )
 
             return response
@@ -121,7 +113,7 @@ Be sarcastic, condescending, and incisive. Mock the logic (or lack thereof) of t
         weapon: str,
         room: str,
         was_correct: bool,
-        narrative_tone: str = "🕵️ Sérieuse"
+        narrative_tone: str = "🕵️ Sérieuse",
     ) -> Optional[str]:
         """
         Generate a comment from Desland about an accusation.
@@ -146,11 +138,7 @@ If wrong: Desland is condescending and mocking about their failure.
 Make it incisive and memorable."""
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self._generate_text,
-                    prompt
-                ),
-                timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
             )
 
             return response
@@ -171,7 +159,7 @@ Make it incisive and memorable."""
             return ""
 
         response = self.client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-5-nano",
             messages=[
                 {
                     "role": "system",
@@ -188,15 +176,12 @@ Examples of your style:
 "Une capsule de café ? Brillant. Parce que évidemment, on commet des meurtres avec du Nespresso maintenant."
 "Ah oui, excellente déduction Sherlock. Prochaine étape : accuser le chat du voisin."
 
-Keep responses brief (1 sentence), in French, sarcastic and memorable."""
+Keep responses brief (1 sentence), in French, sarcastic and memorable.""",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             temperature=0.9,
-            max_tokens=150
+            max_tokens=150,
         )
 
         return response.choices[0].message.content.strip()

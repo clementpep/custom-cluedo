@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { getGameState, startGame, rollDice, makeSuggestion, makeAccusation, passTurn } from '../api'
+import InvestigationGrid from '../components/InvestigationGrid'
+import GameBoard from '../components/GameBoard'
+import AINavigator from '../components/AINavigator'
 
 function Game() {
   const { gameId, playerId } = useParams()
@@ -113,9 +116,9 @@ function Game() {
     )
   }
 
-  const me = gameState.players.find(p => p.id === playerId)
-  const isMyTurn = gameState.current_player_id === playerId
-  const canStart = me?.is_creator && gameState.status === 'waiting' && gameState.players.length >= 3
+  const me = gameState.players.find(p => p.is_me)
+  const isMyTurn = gameState.current_turn?.is_my_turn
+  const canStart = gameState.status === 'waiting' && gameState.players.length >= 3
 
   return (
     <div className="min-h-screen bg-haunted-gradient p-4 relative overflow-hidden">
@@ -128,14 +131,14 @@ function Game() {
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-4xl font-bold text-haunted-blood mb-1 animate-flicker drop-shadow-[0_0_10px_rgba(139,0,0,0.5)]">
-                🏰 Manoir {gameState.game_code}
+                🏰 {gameState.game_name} ({gameState.game_id})
               </h1>
-              <p className="text-haunted-fog/80">👤 {me?.name} {me?.is_eliminated && '💀 (Éliminé)'}</p>
+              <p className="text-haunted-fog/80">👤 {me?.name} {!me?.is_active && '💀 (Éliminé)'}</p>
             </div>
             <div className="text-right">
               <p className="text-haunted-fog">
                 {gameState.status === 'waiting' ? '⏳ En attente des âmes' :
-                 gameState.status === 'playing' ? '🎮 Enquête en cours' :
+                 gameState.status === 'in_progress' ? '🎮 Enquête en cours' :
                  '🏆 Mystère résolu'}
               </p>
               <p className="text-haunted-fog/60 text-sm">{gameState.players.length} âmes perdues</p>
@@ -152,31 +155,24 @@ function Game() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Plateau */}
-          <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
-            <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">🏰 Les Pièces du Manoir</h2>
-            <div className="space-y-2">
-              {gameState.board?.rooms.map((room, idx) => (
-                <div key={idx} className="bg-black/40 p-3 rounded border border-haunted-shadow hover:border-haunted-blood/50 transition-all">
-                  <div className="font-semibold text-haunted-fog">{room.name}</div>
-                  <div className="text-sm text-haunted-fog/60">
-                    👥 {room.player_ids.map(id =>
-                      gameState.players.find(p => p.id === id)?.name || id
-                    ).join(', ') || 'Aucune âme'}
-                  </div>
-                </div>
-              ))}
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Game Board */}
+          <div className="lg:col-span-2">
+            <GameBoard
+              boardLayout={gameState.board_layout}
+              players={gameState.players}
+              rooms={gameState.rooms}
+              myPosition={gameState.my_position}
+            />
           </div>
 
-          {/* Mes cartes */}
+          {/* My Cards */}
           <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
             <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">🃏 Vos Indices</h2>
             <div className="space-y-2">
-              {me?.cards.map((card, idx) => (
+              {gameState.my_cards?.map((card, idx) => (
                 <div key={idx} className="bg-black/40 px-4 py-2 rounded text-haunted-fog border border-haunted-shadow hover:border-haunted-blood/50 transition-all">
-                  {card.type === 'suspect' && '👤 '}
+                  {card.type === 'character' && '👤 '}
                   {card.type === 'weapon' && '🔪 '}
                   {card.type === 'room' && '🏚️ '}
                   {card.name}
@@ -186,34 +182,48 @@ function Game() {
           </div>
         </div>
 
+        {/* Investigation Grid */}
+        <InvestigationGrid
+          suspects={gameState.suspects}
+          weapons={gameState.weapons}
+          rooms={gameState.rooms}
+          myCards={gameState.my_cards}
+        />
+
+        {/* AI Narrator */}
+        {gameState.use_ai && (
+          <AINavigator
+            recentActions={gameState.recent_actions}
+            gameStatus={gameState.status}
+          />
+        )}
+
         {/* Actions */}
-        {gameState.status === 'playing' && (
+        {gameState.status === 'in_progress' && (
           <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-blood/30">
             <h2 className="text-2xl font-bold text-haunted-blood mb-4 animate-flicker">
-              {isMyTurn ? '⚡ À vous de jouer !' : '⏳ ' + gameState.players.find(p => p.id === gameState.current_player_id)?.name + ' enquête...'}
+              {isMyTurn ? '⚡ À vous de jouer !' : '⏳ ' + gameState.current_turn?.player_name + ' enquête...'}
             </h2>
 
             {isMyTurn && (
               <div className="space-y-4">
-                {!me.has_moved ? (
-                  <div className="flex gap-4">
-                    <button
-                      onClick={handleRollDice}
-                      disabled={actionLoading}
-                      className="px-6 py-3 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
-                    >
-                      🎲 Lancer les dés
-                    </button>
-                    <button
-                      onClick={handlePassTurn}
-                      disabled={actionLoading}
-                      className="px-6 py-3 bg-black/40 hover:bg-black/60 disabled:opacity-50 text-haunted-fog border-2 border-haunted-shadow font-semibold rounded-lg transition-all"
-                    >
-                      ⏭️ Passer
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
+                <div className="flex gap-4 mb-4">
+                  <button
+                    onClick={handleRollDice}
+                    disabled={actionLoading}
+                    className="px-6 py-3 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
+                  >
+                    🎲 Lancer les dés
+                  </button>
+                  <button
+                    onClick={handlePassTurn}
+                    disabled={actionLoading}
+                    className="px-6 py-3 bg-black/40 hover:bg-black/60 disabled:opacity-50 text-haunted-fog border-2 border-haunted-shadow font-semibold rounded-lg transition-all"
+                  >
+                    ⏭️ Passer
+                  </button>
+                </div>
+                <div className="space-y-4">
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm text-haunted-fog mb-2">👤 Suspect</label>
@@ -223,7 +233,7 @@ function Game() {
                           className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
-                          {gameState.board?.suspects.map((s, i) => (
+                          {gameState.suspects?.map((s, i) => (
                             <option key={i} value={s}>{s}</option>
                           ))}
                         </select>
@@ -236,7 +246,7 @@ function Game() {
                           className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
-                          {gameState.board?.weapons.map((w, i) => (
+                          {gameState.weapons?.map((w, i) => (
                             <option key={i} value={w}>{w}</option>
                           ))}
                         </select>
@@ -249,8 +259,8 @@ function Game() {
                           className="w-full px-3 py-2 bg-black/40 text-haunted-fog rounded border-2 border-haunted-shadow focus:border-haunted-blood focus:outline-none"
                         >
                           <option value="">--</option>
-                          {gameState.board?.rooms.map((r, i) => (
-                            <option key={i} value={r.name}>{r.name}</option>
+                          {gameState.rooms?.map((r, i) => (
+                            <option key={i} value={r}>{r}</option>
                           ))}
                         </select>
                       </div>
@@ -270,16 +280,8 @@ function Game() {
                       >
                         ⚠️ Accuser
                       </button>
-                      <button
-                        onClick={handlePassTurn}
-                        disabled={actionLoading}
-                        className="px-6 py-3 bg-black/40 hover:bg-black/60 disabled:opacity-50 text-haunted-fog border-2 border-haunted-shadow font-semibold rounded-lg transition-all"
-                      >
-                        ⏭️ Passer
-                      </button>
                     </div>
                   </div>
-                )}
               </div>
             )}
           </div>
@@ -289,9 +291,9 @@ function Game() {
         <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
           <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">📜 Journal de l'Enquête</h2>
           <div className="space-y-2 max-h-64 overflow-y-auto">
-            {gameState.history?.slice(-10).reverse().map((event, idx) => (
+            {gameState.recent_actions?.slice().reverse().map((action, idx) => (
               <div key={idx} className="text-haunted-fog/80 text-sm border-l-2 border-haunted-blood pl-3 py-1 hover:bg-black/20 transition-all">
-                {event}
+                <span className="font-semibold">{action.player}</span> - {action.action}: {action.details}
               </div>
             ))}
           </div>

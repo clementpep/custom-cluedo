@@ -37,6 +37,7 @@ class GameManager:
             custom_weapons=request.custom_weapons,
             custom_suspects=request.custom_suspects,
             use_ai=request.use_ai,
+            board_layout=request.board_layout,
             max_players=settings.MAX_PLAYERS
         )
 
