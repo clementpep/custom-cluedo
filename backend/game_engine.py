@@ -214,7 +214,7 @@ class GameEngine:
         ai_comment: Optional[str] = None
     ):
         """Add a turn record to the game history."""
-        from models import Turn
+        from backend.models import Turn
 
         player = next((p for p in game.players if p.id == player_id), None)
         if not player:
@@ -250,13 +250,14 @@ class GameEngine:
 
     @staticmethod
     def roll_dice() -> int:
-        """Roll two dice and return the sum (2-12)."""
-        return random.randint(1, 6) + random.randint(1, 6)
+        """Roll a single die (1-6)."""
+        return random.randint(1, 6)
 
     @staticmethod
     def move_player(game: Game, player_id: str, dice_roll: int) -> Tuple[bool, str, int]:
         """
-        Move a player on the board based on dice roll.
+        Move a player to a room based on dice roll.
+        Dice value maps directly to room index (1→room 0, 2→room 1, etc.)
         Returns (success, message, new_room_index).
         """
         player = next((p for p in game.players if p.id == player_id), None)
@@ -267,14 +268,14 @@ class GameEngine:
         if num_rooms == 0:
             return False, "Pas de pièces disponibles", -1
 
-        # Calculate new position (circular movement)
-        new_room_index = (player.current_room_index + dice_roll) % num_rooms
-        old_room = game.rooms[player.current_room_index]
+        # Map dice roll to room (1-6 maps to rooms, if more rooms, use modulo)
+        new_room_index = (dice_roll - 1) % num_rooms
+        old_room = game.rooms[player.current_room_index] if player.current_room_index < num_rooms else "???"
         new_room = game.rooms[new_room_index]
 
         player.current_room_index = new_room_index
 
-        message = f"🎲 Dés: {dice_roll} | {old_room} → {new_room}"
+        message = f"🎲 Dé: {dice_roll} → {new_room}"
         return True, message, new_room_index
 
     @staticmethod

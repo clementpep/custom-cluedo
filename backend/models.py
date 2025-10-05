@@ -39,6 +39,7 @@ class Player(BaseModel):
     cards: List[Card] = Field(default_factory=list)
     is_active: bool = True
     current_room_index: int = 0  # Position on the board
+    has_rolled: bool = False  # Track if player rolled dice this turn
 
 
 class GameStatus(str, Enum):
@@ -154,6 +155,10 @@ class Game(BaseModel):
         """Move to the next active player's turn."""
         if not self.players:
             return
+
+        # Reset has_rolled for current player
+        if self.current_player_index < len(self.players):
+            self.players[self.current_player_index].has_rolled = False
 
         # Skip eliminated players
         attempts = 0

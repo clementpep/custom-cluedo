@@ -5,7 +5,7 @@ Only active when USE_OPENAI environment variable is set to true.
 
 from typing import Optional
 from openai import OpenAI
-from config import settings
+from backend.config import settings
 import asyncio
 
 

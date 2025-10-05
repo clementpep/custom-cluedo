@@ -15,6 +15,7 @@ function Game() {
   const [selectedSuspect, setSelectedSuspect] = useState('')
   const [selectedWeapon, setSelectedWeapon] = useState('')
   const [selectedRoom, setSelectedRoom] = useState('')
+  const [revealedCard, setRevealedCard] = useState(null)
 
   useEffect(() => {
     loadGameState()
@@ -63,7 +64,19 @@ function Game() {
     }
     setActionLoading(true)
     try {
-      await makeSuggestion(gameId, playerId, selectedSuspect, selectedWeapon, selectedRoom)
+      const result = await makeSuggestion(gameId, playerId, selectedSuspect, selectedWeapon, selectedRoom)
+
+      // Show revealed card if any
+      if (result.data.card_shown) {
+        setRevealedCard({
+          ...result.data.card_shown,
+          disprover: result.data.disprover
+        })
+        setTimeout(() => setRevealedCard(null), 5000) // Hide after 5 seconds
+      } else {
+        alert('Personne ne peut réfuter votre suggestion !')
+      }
+
       await loadGameState()
       setSelectedSuspect('')
       setSelectedWeapon('')
@@ -117,8 +130,9 @@ function Game() {
   }
 
   const me = gameState.players.find(p => p.is_me)
-  const isMyTurn = gameState.current_turn?.is_my_turn
+  const isMyTurn = gameState.current_turn?.is_my_turn && me?.is_active
   const canStart = gameState.status === 'waiting' && gameState.players.length >= 3
+  const isEliminated = me && !me.is_active
 
   return (
     <div className="min-h-screen bg-haunted-gradient p-4 relative overflow-hidden">
@@ -154,6 +168,14 @@ function Game() {
             </button>
           )}
         </div>
+
+        {/* Scenario */}
+        {gameState.scenario && gameState.status === 'in_progress' && (
+          <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-purple/30">
+            <h2 className="text-xl font-bold text-haunted-purple mb-3 animate-flicker">📜 Le Mystère</h2>
+            <p className="text-haunted-fog italic">{gameState.scenario}</p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Game Board */}
@@ -198,14 +220,39 @@ function Game() {
           />
         )}
 
+        {/* Revealed Card Modal */}
+        {revealedCard && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+            <div className="bg-black/90 border-4 border-haunted-blood p-8 rounded-lg shadow-2xl max-w-md">
+              <h3 className="text-2xl font-bold text-haunted-blood mb-4 animate-flicker">🃏 Carte Révélée</h3>
+              <p className="text-haunted-fog mb-2">
+                <span className="font-semibold">{revealedCard.disprover}</span> vous montre :
+              </p>
+              <div className="bg-haunted-blood/20 border-2 border-haunted-blood p-4 rounded-lg">
+                <p className="text-2xl font-bold text-haunted-fog text-center">
+                  {revealedCard.type === 'character' && '👤 '}
+                  {revealedCard.type === 'weapon' && '🔪 '}
+                  {revealedCard.type === 'room' && '🏚️ '}
+                  {revealedCard.name}
+                </p>
+              </div>
+              <p className="text-haunted-fog/60 text-sm mt-4 text-center italic">
+                Cette carte disparaîtra dans quelques secondes...
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         {gameState.status === 'in_progress' && (
           <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-blood/30">
             <h2 className="text-2xl font-bold text-haunted-blood mb-4 animate-flicker">
-              {isMyTurn ? '⚡ À vous de jouer !' : '⏳ ' + gameState.current_turn?.player_name + ' enquête...'}
+              {isEliminated ? '💀 Vous êtes éliminé - Vous pouvez toujours observer' :
+               isMyTurn ? '⚡ À vous de jouer !' :
+               '⏳ ' + gameState.current_turn?.player_name + ' enquête...'}
             </h2>
 
-            {isMyTurn && (
+            {isMyTurn && !isEliminated && (
               <div className="space-y-4">
                 <div className="flex gap-4 mb-4">
                   <button

@@ -69,7 +69,7 @@ async def quick_create_game(req: QuickCreateRequest):
             rooms=config["rooms"],
             custom_weapons=config["weapons"],
             custom_suspects=config["suspects"],
-            use_ai=False,
+            use_ai=True,  # Enable AI by default
             board_layout=board_layout
         )
 
@@ -128,9 +128,24 @@ async def start_game(game_id: str):
         raise HTTPException(status_code=400, detail="Cannot start game (need min 3 players)")
 
     game = game_manager.get_game(game_id.upper())
+
+    # Generate AI scenario if enabled
+    if game and game.use_ai and not game.scenario:
+        try:
+            from backend.ai_service import ai_service
+            game.scenario = await ai_service.generate_scenario(
+                game.rooms,
+                [c.name for c in game.characters],
+                game.narrative_tone
+            )
+            game_manager.save_games()
+        except Exception as e:
+            print(f"AI scenario generation failed: {e}")
+
     return {
         "status": "started",
-        "first_player": game.get_current_player().name if game else None
+        "first_player": game.get_current_player().name if game else None,
+        "scenario": game.scenario if game else None
     }
 
 
@@ -155,6 +170,7 @@ async def get_game_state(game_id: str, player_id: str):
         "game_name": game.name,
         "status": game.status.value,
         "scenario": game.scenario,
+        "use_ai": game.use_ai,
         "rooms": game.rooms,
         "suspects": [c.name for c in game.characters],
         "weapons": [w.name for w in game.weapons],
@@ -183,7 +199,7 @@ async def get_game_state(game_id: str, player_id: str):
                 "details": t.details,
                 "ai_comment": t.ai_comment
             }
-            for t in game.turns[-5:]
+            for t in game.turns[-10:]  # Show more history
         ],
         "winner": game.winner
     }
@@ -204,6 +220,11 @@ async def roll_dice(game_id: str, req: DiceRollRequest):
     if not GameEngine.can_player_act(game, req.player_id):
         raise HTTPException(status_code=400, detail="Not your turn")
 
+    # Check if player already rolled
+    player = next((p for p in game.players if p.id == req.player_id), None)
+    if player and player.has_rolled:
+        raise HTTPException(status_code=400, detail="Vous avez déjà lancé les dés ce tour")
+
     # Roll dice
     dice = GameEngine.roll_dice()
 
@@ -213,8 +234,32 @@ async def roll_dice(game_id: str, req: DiceRollRequest):
     if not success:
         raise HTTPException(status_code=400, detail=msg)
 
-    # Record turn
-    GameEngine.add_turn_record(game, req.player_id, "move", msg)
+    # Get player name
+    player = next((p for p in game.players if p.id == req.player_id), None)
+    player_name = player.name if player else "Inconnu"
+
+    # Generate AI comment if enabled
+    ai_comment = None
+    if game.use_ai:
+        try:
+            from backend.ai_service import ai_service
+            # Simple comment about movement
+            prompts = [
+                f"{player_name} se dirige vers {game.rooms[new_pos]}... Intéressant choix.",
+                f"Ah, {game.rooms[new_pos]}. {player_name} pense y trouver quelque chose ?",
+                f"{player_name} va fouiner dans {game.rooms[new_pos]}. Bonne chance avec ça."
+            ]
+            import random
+            ai_comment = random.choice(prompts)
+        except Exception as e:
+            print(f"AI comment generation failed: {e}")
+
+    # Mark player as having rolled
+    if player:
+        player.has_rolled = True
+
+    # Record turn with AI comment
+    GameEngine.add_turn_record(game, req.player_id, "move", msg, ai_comment=ai_comment)
     game_manager.save_games()
 
     return {
@@ -261,7 +306,7 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
     ai_comment = None
     if game.use_ai:
         try:
-            from ai_service import ai_service
+            from backend.ai_service import ai_service
             import asyncio
             ai_comment = await ai_service.generate_suggestion_comment(
                 player_name,
@@ -278,7 +323,10 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
         "suggestion": f"{req.suspect} + {req.weapon} + {req.room}",
         "was_disproven": can_disprove,
         "disprover": disprover if can_disprove else None,
-        "card_shown": card.name if card else None
+        "card_shown": {
+            "name": card.name,
+            "type": card.card_type.value
+        } if card else None
     }
 
     # Record turn with AI comment
@@ -327,7 +375,7 @@ async def make_accusation(game_id: str, req: AccusationRequest):
     ai_comment = None
     if game.use_ai:
         try:
-            from ai_service import ai_service
+            from backend.ai_service import ai_service
             ai_comment = await ai_service.generate_accusation_comment(
                 player_name,
                 req.suspect,
