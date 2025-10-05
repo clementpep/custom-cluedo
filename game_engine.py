@@ -9,7 +9,7 @@ from models import Game, Card, CardType, Solution, GameStatus, Player
 from datetime import datetime
 
 
-# Default character names (can be customized)
+# Default character names (fallback if no custom suspects provided)
 DEFAULT_CHARACTERS = [
     "Miss Scarlett",
     "Colonel Mustard",
@@ -19,7 +19,7 @@ DEFAULT_CHARACTERS = [
     "Professor Plum"
 ]
 
-# Default weapon names (can be customized)
+# Default weapon names (fallback if no custom weapons provided)
 DEFAULT_WEAPONS = [
     "Candlestick",
     "Knife",
@@ -39,16 +39,20 @@ class GameEngine:
         Initialize a game with cards and solution.
         Distributes cards among players after setting aside the solution.
         """
+        # Use custom suspects or defaults
+        suspects = game.custom_suspects if game.custom_suspects else DEFAULT_CHARACTERS
+        weapons = game.custom_weapons if game.custom_weapons else DEFAULT_WEAPONS
+
         # Create character cards
         game.characters = [
             Card(name=name, card_type=CardType.CHARACTER)
-            for name in DEFAULT_CHARACTERS
+            for name in suspects
         ]
 
         # Create weapon cards
         game.weapons = [
             Card(name=name, card_type=CardType.WEAPON)
-            for name in DEFAULT_WEAPONS
+            for name in weapons
         ]
 
         # Create room cards
@@ -206,7 +210,8 @@ class GameEngine:
         game: Game,
         player_id: str,
         action: str,
-        details: Optional[str] = None
+        details: Optional[str] = None,
+        ai_comment: Optional[str] = None
     ):
         """Add a turn record to the game history."""
         from models import Turn
@@ -220,6 +225,7 @@ class GameEngine:
             player_name=player.name,
             action=action,
             details=details,
+            ai_comment=ai_comment,
             timestamp=datetime.now().isoformat()
         )
         game.turns.append(turn)
@@ -241,3 +247,48 @@ class GameEngine:
             current_player.is_active and
             game.status == GameStatus.IN_PROGRESS
         )
+
+    @staticmethod
+    def roll_dice() -> int:
+        """Roll two dice and return the sum (2-12)."""
+        return random.randint(1, 6) + random.randint(1, 6)
+
+    @staticmethod
+    def move_player(game: Game, player_id: str, dice_roll: int) -> Tuple[bool, str, int]:
+        """
+        Move a player on the board based on dice roll.
+        Returns (success, message, new_room_index).
+        """
+        player = next((p for p in game.players if p.id == player_id), None)
+        if not player:
+            return False, "Joueur introuvable", -1
+
+        num_rooms = len(game.rooms)
+        if num_rooms == 0:
+            return False, "Pas de pièces disponibles", -1
+
+        # Calculate new position (circular movement)
+        new_room_index = (player.current_room_index + dice_roll) % num_rooms
+        old_room = game.rooms[player.current_room_index]
+        new_room = game.rooms[new_room_index]
+
+        player.current_room_index = new_room_index
+
+        message = f"🎲 Dés: {dice_roll} | {old_room} → {new_room}"
+        return True, message, new_room_index
+
+    @staticmethod
+    def can_make_suggestion(game: Game, player_id: str, room: str) -> Tuple[bool, str]:
+        """
+        Check if a player can make a suggestion.
+        Players can only suggest in the room they're currently in.
+        """
+        player = next((p for p in game.players if p.id == player_id), None)
+        if not player:
+            return False, "Joueur introuvable"
+
+        current_room = game.rooms[player.current_room_index]
+        if current_room != room:
+            return False, f"Tu dois être dans {room} pour faire cette suggestion ! Tu es actuellement dans {current_room}."
+
+        return True, ""

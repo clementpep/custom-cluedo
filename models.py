@@ -10,6 +10,15 @@ import random
 import string
 
 
+class NarrativeTone(str, Enum):
+    """Narrative tone options for the game."""
+    SERIOUS = "🕵️ Sérieuse"
+    PARODY = "😂 Parodique"
+    FANTASY = "🧙‍♂️ Fantastique"
+    THRILLER = "🎬 Thriller"
+    HORROR = "👻 Horreur"
+
+
 class CardType(str, Enum):
     """Types of cards in the game."""
     CHARACTER = "character"
@@ -29,6 +38,7 @@ class Player(BaseModel):
     name: str
     cards: List[Card] = Field(default_factory=list)
     is_active: bool = True
+    current_room_index: int = 0  # Position on the board
 
 
 class GameStatus(str, Enum):
@@ -42,8 +52,9 @@ class Turn(BaseModel):
     """Represents a turn action in the game."""
     player_id: str
     player_name: str
-    action: str  # "move", "suggest", "accuse"
+    action: str  # "move", "suggest", "accuse", "pass"
     details: Optional[str] = None
+    ai_comment: Optional[str] = None  # Desland's sarcastic comment
     timestamp: str
 
 
@@ -54,12 +65,29 @@ class Solution(BaseModel):
     room: Card
 
 
+class InvestigationNote(BaseModel):
+    """Player's notes on the investigation."""
+    player_id: str
+    element_name: str  # Name of suspect/weapon/room
+    element_type: str  # "suspect", "weapon", "room"
+    status: str  # "unknown", "eliminated", "maybe"
+
+
 class Game(BaseModel):
     """Represents a complete game instance."""
     game_id: str
     name: str
     status: GameStatus = GameStatus.WAITING
+
+    # Theme and narrative
+    narrative_tone: str = NarrativeTone.SERIOUS.value
+    custom_prompt: Optional[str] = None
+
+    # Game elements (customizable)
     rooms: List[str]
+    custom_weapons: List[str] = Field(default_factory=list)
+    custom_suspects: List[str] = Field(default_factory=list)
+
     use_ai: bool = False
 
     # Players
@@ -79,18 +107,23 @@ class Game(BaseModel):
     turns: List[Turn] = Field(default_factory=list)
     winner: Optional[str] = None
 
+    # Investigation notes (for UI)
+    investigation_notes: List[InvestigationNote] = Field(default_factory=list)
+
     # AI-generated content
     scenario: Optional[str] = None
 
     @staticmethod
     def generate_game_id() -> str:
-        """Generate a unique 6-character game ID."""
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        """Generate a unique 4-character game ID (like AB7F)."""
+        chars = string.ascii_uppercase + string.digits
+        return ''.join(random.choices(chars, k=4))
 
     def add_player(self, player_name: str) -> Player:
         """Add a new player to the game."""
         player_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-        player = Player(id=player_id, name=player_name)
+        # All players start in the first room
+        player = Player(id=player_id, name=player_name, current_room_index=0)
         self.players.append(player)
         return player
 
@@ -101,9 +134,17 @@ class Game(BaseModel):
         return self.players[self.current_player_index]
 
     def next_turn(self):
-        """Move to the next player's turn."""
-        if self.players:
+        """Move to the next active player's turn."""
+        if not self.players:
+            return
+
+        # Skip eliminated players
+        attempts = 0
+        while attempts < len(self.players):
             self.current_player_index = (self.current_player_index + 1) % len(self.players)
+            if self.players[self.current_player_index].is_active:
+                break
+            attempts += 1
 
     def is_full(self) -> bool:
         """Check if the game has reached maximum players."""
@@ -113,7 +154,11 @@ class Game(BaseModel):
 class CreateGameRequest(BaseModel):
     """Request to create a new game."""
     game_name: str
+    narrative_tone: str = NarrativeTone.SERIOUS.value
+    custom_prompt: Optional[str] = None
     rooms: List[str]
+    custom_weapons: List[str]
+    custom_suspects: List[str]
     use_ai: bool = False
 
 
@@ -127,7 +172,11 @@ class GameAction(BaseModel):
     """Request to perform a game action."""
     game_id: str
     player_id: str
-    action_type: str  # "suggest", "accuse", "pass"
+    action_type: str  # "move", "suggest", "accuse", "pass"
+    # For movement
+    dice_roll: Optional[int] = None
+    target_room_index: Optional[int] = None
+    # For suggestions/accusations
     character: Optional[str] = None
     weapon: Optional[str] = None
     room: Optional[str] = None

@@ -35,46 +35,67 @@ class GameState:
 state = GameState()
 
 
-def create_game(game_name: str, rooms_text: str, use_ai: bool):
+def create_game(
+    game_name: str,
+    narrative_tone: str,
+    custom_prompt: str,
+    rooms_text: str,
+    weapons_text: str,
+    suspects_text: str,
+    use_ai: bool
+):
     """
-    Create a new game.
+    Create a new game with custom elements.
     """
     if not game_name or not rooms_text:
-        return "❌ Ekelesbikes ! Fournissez un nom d'enquête et une liste de pièces", ""
+        return "❌ Fournissez un titre d'enquête et une liste de lieux", ""
 
-    # Parse rooms (comma or newline separated)
+    # Parse inputs (comma or newline separated)
     rooms = [r.strip() for r in rooms_text.replace("\n", ",").split(",") if r.strip()]
+    weapons = [w.strip() for w in weapons_text.replace("\n", ",").split(",") if w.strip()]
+    suspects = [s.strip() for s in suspects_text.replace("\n", ",").split(",") if s.strip()]
 
+    # Validation
     if len(rooms) < settings.MIN_ROOMS:
-        return (
-            f"❌ Koikoubaiseyyyyy ! Il faut au moins {settings.MIN_ROOMS} pièces",
-            "",
-        )
+        return f"❌ Il faut au moins {settings.MIN_ROOMS} lieux", ""
 
     if len(rooms) > settings.MAX_ROOMS:
-        return (
-            f"❌ Triple monstre coucouuuuu ! Maximum {settings.MAX_ROOMS} pièces autorisées",
-            "",
-        )
+        return f"❌ Maximum {settings.MAX_ROOMS} lieux autorisés", ""
+
+    if len(weapons) < 3:
+        return "❌ Il faut au moins 3 armes", ""
+
+    if len(suspects) < 3:
+        return "❌ Il faut au moins 3 suspects", ""
 
     try:
         if IS_HUGGINGFACE:
-            # Direct backend call
             from game_manager import game_manager
             from models import CreateGameRequest
 
-            request = CreateGameRequest(game_name=game_name, rooms=rooms, use_ai=use_ai)
+            request = CreateGameRequest(
+                game_name=game_name,
+                narrative_tone=narrative_tone,
+                custom_prompt=custom_prompt if custom_prompt else None,
+                rooms=rooms,
+                custom_weapons=weapons,
+                custom_suspects=suspects,
+                use_ai=use_ai
+            )
             game = game_manager.create_game(request)
 
             # Generate AI scenario if enabled
             if game.use_ai and settings.USE_OPENAI:
-                from game_engine import DEFAULT_CHARACTERS
                 from ai_service import ai_service
                 import asyncio
 
                 try:
                     scenario = asyncio.run(
-                        ai_service.generate_scenario(game.rooms, DEFAULT_CHARACTERS)
+                        ai_service.generate_scenario(
+                            game.rooms,
+                            game.custom_suspects,
+                            game.narrative_tone
+                        )
                     )
                     if scenario:
                         game.scenario = scenario
@@ -84,17 +105,25 @@ def create_game(game_name: str, rooms_text: str, use_ai: bool):
 
             state.game_id = game.game_id
             return (
-                f"✅ Enquête créée avec succès ! En alicrampté, les coicoubaca sont de sortie...\n\n"
-                f"🔑 Code d'Enquête : {game.game_id}\n\n"
-                f"📤 Partagez ce code avec les autres poupouilles masquées pour qu'elles puissent vous rejoindre en alicrampté.\n\n"
-                f"ℹ️ Minimum {settings.MIN_PLAYERS} péchailloux requis pour démarrer (sinon c'est les fourlestourtes et les bourbillats).",
+                f"✅ Enquête créée !\n\n"
+                f"🔑 Code d'Enquête : **{game.game_id}**\n\n"
+                f"📤 Partagez ce code avec les autres joueurs\n"
+                f"ℹ️ Minimum {settings.MIN_PLAYERS} joueurs requis pour démarrer",
                 game.game_id,
             )
         else:
             # HTTP API call (local mode)
             response = requests.post(
                 f"{API_BASE}/games/create",
-                json={"game_name": game_name, "rooms": rooms, "use_ai": use_ai},
+                json={
+                    "game_name": game_name,
+                    "narrative_tone": narrative_tone,
+                    "custom_prompt": custom_prompt if custom_prompt else None,
+                    "rooms": rooms,
+                    "custom_weapons": weapons,
+                    "custom_suspects": suspects,
+                    "use_ai": use_ai
+                },
                 timeout=5,
             )
 
@@ -102,20 +131,17 @@ def create_game(game_name: str, rooms_text: str, use_ai: bool):
                 data = response.json()
                 state.game_id = data["game_id"]
                 return (
-                    f"✅ Enquête créée avec succès ! En alicrampté, les coicoubaca sont de sortie...\n\n"
-                    f"🔑 Code d'Enquête : {data['game_id']}\n\n"
-                    f"📤 Partagez ce code avec les autres joueurs pour qu'ils puissent rejoindre.\n\n"
-                    f"ℹ️ Minimum {settings.MIN_PLAYERS} joueurs requis pour démarrer.",
+                    f"✅ Enquête créée !\n\n"
+                    f"🔑 Code : **{data['game_id']}**\n\n"
+                    f"📤 Partagez ce code\n"
+                    f"ℹ️ Min. {settings.MIN_PLAYERS} joueurs",
                     data["game_id"],
                 )
             else:
-                return (
-                    f"❌ All RS5, erreur réseau : {response.json().get('detail', 'Erreur inconnue')}",
-                    "",
-                )
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}", ""
 
     except Exception as e:
-        return f"❌ Yamete coudasai ! Erreur lors de la création : {str(e)}", ""
+        return f"❌ Erreur : {str(e)}", ""
 
 
 def join_game(game_id: str, player_name: str):
@@ -123,7 +149,7 @@ def join_game(game_id: str, player_name: str):
     Join an existing game.
     """
     if not game_id or not player_name:
-        return "❌ Yamete coudasai ! Fournissez le code d'enquête et votre nom de tchoupinoux masqué !"
+        return "❌ Fournissez le code d'enquête et votre nom !"
 
     try:
         game_id = game_id.strip().upper()
@@ -136,27 +162,27 @@ def join_game(game_id: str, player_name: str):
 
             game = game_manager.get_game(game_id)
             if not game:
-                return "❌ Erreur réseau ! Enquête introuvable... C'est Leland (non c'est Desland)"
+                return "❌ Enquête introuvable !"
 
             if game.status != GameStatus.WAITING:
-                return "❌ Armankaboul ! Les chnawax masqués jouent déjà !"
+                return "❌ La partie a déjà commencé !"
 
             if game.is_full():
-                return "❌ Chat 4, 3 entre chat 4 et 1 brisé ! Trop de poupouilles dans l'enquête..."
+                return "❌ Partie complète (maximum 8 joueurs) !"
 
             player = game_manager.join_game(game_id, player_name)
             if not player:
-                return "❌ Une poupée en pénitence calisse ! Impossible de rejoindre l'enquête !"
+                return "❌ Impossible de rejoindre l'enquête !"
 
             state.game_id = game_id
             state.player_id = player.id
             state.player_name = player_name
 
             return (
-                f"✅ Enquête rejointe avec succès !\n\n"
+                f"✅ Enquête rejointe !\n\n"
                 f"👋 Bienvenue, {player_name} !\n\n"
-                f"⏳ Attendez que le chnawax originel (le créateur) démarre la partie...\n"
-                f"📖 Allez dans l'onglet 🔎 Enquêter pour voir l'état de la partie."
+                f"⏳ Attendez que le créateur démarre la partie\n"
+                f"📖 Consultez l'onglet 🔎 Enquêter pour voir l'état"
             )
         else:
             # HTTP API call (local mode)
@@ -205,13 +231,16 @@ def start_game(game_id: str):
             success = game_manager.start_game(game_id)
 
             if not success:
-                return "❌ Erreur ! Pas assez de tchoupinoux masqués pour commencer la partie !"
+                return f"❌ Impossible de démarrer ! Minimum {settings.MIN_PLAYERS} joueurs requis."
+
+            game = game_manager.get_game(game_id)
 
             return (
-                f"🩸 LE MASSACRE COMMENCE ! Triple monstre coucouuuuu !\n\n"
-                f"🎲 Les cartes ont été distribuées.\n"
-                f"🔪 Tous les joueurs peuvent maintenant consulter leurs cartes et commencer à jouer.\n\n"
-                f"➡️ Allez dans l'onglet 🔎 Enquêter pour voir votre dossier."
+                f"🎬 L'ENQUÊTE COMMENCE !\n\n"
+                f"🃏 Les cartes ont été distribuées\n"
+                f"🎲 Tous les joueurs démarrent dans : {game.rooms[0] if game.rooms else '(aucun lieu)'}\n"
+                f"🔍 À vous de découvrir qui a commis le crime, avec quelle arme et dans quel lieu !\n\n"
+                f"➡️ Allez dans l'onglet 🔎 Enquêter pour commencer à jouer"
             )
         else:
             # HTTP API call (local mode)
@@ -219,13 +248,13 @@ def start_game(game_id: str):
 
             if response.status_code == 200:
                 return (
-                    f"🩸 LE MASSACRE COMMENCE ! Triple monstre coucouuuuu !\n\n"
-                    f"🎲 Les cartes ont été distribuées.\n"
-                    f"🔪 Tous les joueurs peuvent maintenant consulter leurs cartes et commencer à jouer.\n\n"
-                    f"➡️ Allez dans l'onglet 🔎 Enquêter pour voir votre dossier."
+                    f"🎬 L'ENQUÊTE COMMENCE !\n\n"
+                    f"🃏 Les cartes ont été distribuées\n"
+                    f"🔍 À vous de découvrir qui a commis le crime !\n\n"
+                    f"➡️ Allez dans l'onglet 🔎 Enquêter pour commencer"
                 )
             else:
-                return f"❌ All RS5 erreur réseau : {response.json().get('detail', 'Erreur inconnue')}"
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
         return f"❌ Yamete coudasai ! Erreur au démarrage : {str(e)}"
@@ -257,10 +286,14 @@ def get_player_view():
                 return "❌ Poupée en pénitence calisse ! Péchailloux masqué..."
 
             # Build safe view
-            other_players = [
-                {"name": p.name, "is_active": p.is_active, "card_count": len(p.cards)}
+            all_players = [
+                {
+                    "name": p.name,
+                    "is_active": p.is_active,
+                    "card_count": len(p.cards),
+                    "position": p.current_room_index
+                }
                 for p in game.players
-                if p.id != state.player_id
             ]
 
             current_player = game.get_current_player()
@@ -274,7 +307,8 @@ def get_player_view():
                 "characters": [c.name for c in game.characters],
                 "weapons": [w.name for w in game.weapons],
                 "my_cards": [c.name for c in player.cards],
-                "other_players": other_players,
+                "my_position": player.current_room_index,
+                "all_players": all_players,
                 "current_turn": current_player.name if current_player else None,
                 "is_my_turn": (
                     current_player.id == state.player_id if current_player else False
@@ -295,53 +329,78 @@ def get_player_view():
 
         # Format output (common for both modes)
         output = []
-        output.append(f"═══ 🩸 {data['game_name']} - LE CARNAGE SANGLANT 🩸 ═══\n")
+        output.append(f"═══ 🎮 {data['game_name']} ═══\n")
 
         status_map = {
-            "waiting": "⏳ Les poupouilles masquées arrivent...",
-            "in_progress": "🔪 CARNAGE EN COURS",
-            "finished": "💀 MASSACRE TERMINÉ - Un chnawax a gagné",
+            "waiting": "⏳ En attente de joueurs...",
+            "in_progress": "🎲 Partie en cours",
+            "finished": "🏆 Partie terminée",
         }
         output.append(f"📊 Statut : {status_map.get(data['status'], data['status'])}\n")
 
         if data.get("scenario"):
             output.append(f"\n📜 Scénario :\n{data['scenario']}\n")
 
+        # Show player's current position if game started
+        if data.get("my_position") is not None and data["rooms"]:
+            current_room = data["rooms"][data["my_position"]]
+            output.append(f"\n📍 VOTRE POSITION : **{current_room}**")
+
         output.append(f"\n━━━ 🃏 VOS CARTES ━━━")
         output.append("(Ces éléments NE SONT PAS la solution)")
         for card in data["my_cards"]:
             output.append(f"  🔸 {card}")
 
-        output.append(f"\n━━━ ℹ️ INFORMATIONS DE JEU ━━━")
-        output.append(f"🚪 Lieux : {', '.join(data['rooms'])}")
-        output.append(f"👤 Personnages : {', '.join(data['characters'])}")
+        output.append(f"\n━━━ 🏠 PLATEAU DE JEU (Circuit) ━━━")
+        # Show rooms with player positions in circuit order
+        rooms_display = []
+        for idx, room in enumerate(data["rooms"]):
+            players_here = [p["name"] for p in data.get("all_players", []) if p.get("position") == idx]
+
+            # Visual indicator
+            if players_here:
+                icon = "👥"
+                player_names = ', '.join(players_here)
+                rooms_display.append(f"  {idx+1}. {icon} **{room}** → {player_names}")
+            else:
+                icon = "🚪"
+                rooms_display.append(f"  {idx+1}. {icon} {room}")
+
+        output.extend(rooms_display)
+        output.append(f"  └─→ Circuit fermé (retour à {data['rooms'][0]})")
+
+        output.append(f"\n━━━ ℹ️ ÉLÉMENTS DU JEU ━━━")
+        output.append(f"👤 Suspects : {', '.join(data['characters'])}")
         output.append(f"🔪 Armes : {', '.join(data['weapons'])}")
 
-        output.append(f"\n━━━ 👥 DÉTECTIVES ━━━")
-        for player in data["other_players"]:
+        output.append(f"\n━━━ 👥 JOUEURS ━━━")
+        for player in data.get("all_players", []):
             status_icon = "✅" if player["is_active"] else "❌"
+            position = data["rooms"][player["position"]] if player.get("position") is not None else "?"
             output.append(
-                f"  {status_icon} {player['name']} ({player['card_count']} cartes)"
+                f"  {status_icon} {player['name']} - {position} ({player['card_count']} cartes)"
             )
 
         if data["current_turn"]:
             turn_marker = (
-                "👉 C'EST TON TOUR MON PÉCHAILLOUX !" if data["is_my_turn"] else ""
+                "👉 C'EST VOTRE TOUR !" if data["is_my_turn"] else ""
             )
             output.append(f"\n━━━ 🎯 TOUR ACTUEL ━━━")
             output.append(f"🎲 {data['current_turn']} {turn_marker}")
 
         if data.get("winner"):
             output.append(
-                f"\n\n🏆🏆🏆 QUOICOUBAIDEYYYYY ! VAINQUEUR : {data['winner']} 🏆🏆🏆"
+                f"\n\n🏆🏆🏆 VAINQUEUR : {data['winner']} 🏆🏆🏆"
             )
 
         if data["recent_turns"]:
-            output.append(f"\n━━━ 📰 ACTIONS RÉCENTES ━━━")
+            output.append(f"\n━━━ 📰 HISTORIQUE (5 dernières actions) ━━━")
             for turn in data["recent_turns"][-5:]:
                 output.append(f"  • {turn['player_name']}: {turn['action']}")
                 if turn.get("details"):
                     output.append(f"    ↪ {turn['details']}")
+                if turn.get("ai_comment"):
+                    output.append(f"    🗣️ Desland: {turn['ai_comment']}")
 
         return "\n".join(output)
 
@@ -354,56 +413,77 @@ def make_suggestion(character: str, weapon: str, room: str):
     Make a suggestion.
     """
     if not state.game_id or not state.player_id:
-        return "❌ Ekelesbikes ! Vous n'êtes pas dans une enquête"
+        return "❌ Vous n'êtes pas dans une enquête"
 
     if not all([character, weapon, room]):
-        return "❌ Eskilibass (I'm a spiderman), choisissez un personnage, une arme et un lieu"
+        return "❌ Choisissez un suspect, une arme et un lieu"
 
     try:
         if IS_HUGGINGFACE:
-            # Direct backend call
             from game_manager import game_manager
             from game_engine import GameEngine
+            from ai_service import ai_service
+            import asyncio
 
             game = game_manager.get_game(state.game_id)
-
             if not game:
-                return "❌ All RS5, erreur réseau ! Enquête introuvable"
+                return "❌ Enquête introuvable"
 
-            # Verify it's the player's turn
             if not GameEngine.can_player_act(game, state.player_id):
-                return "❌ Yamete coudasai ! C'est pas ton tour !"
+                return "❌ Ce n'est pas votre tour !"
+
+            # Check if player is in the correct room
+            can_suggest, error_msg = GameEngine.can_make_suggestion(game, state.player_id, room)
+            if not can_suggest:
+                return f"❌ {error_msg}"
 
             player = next((p for p in game.players if p.id == state.player_id), None)
             if not player:
-                return "❌ All RS5, erreur réseau ! Péchailloux masqué introuvable"
+                return "❌ Joueur introuvable"
 
+            # Process suggestion
             can_disprove, disprover, card = GameEngine.check_suggestion(
                 game, state.player_id, character, weapon, room
             )
 
-            suggestion_text = f"Suggested: {character} with {weapon} in {room}"
+            suggestion_text = f"{character} avec {weapon} dans {room}"
 
+            # Generate AI comment if enabled
+            ai_comment = None
+            if game.use_ai and settings.USE_OPENAI:
+                try:
+                    ai_comment = asyncio.run(
+                        ai_service.generate_suggestion_comment(
+                            player.name,
+                            character,
+                            weapon,
+                            room,
+                            can_disprove,
+                            game.narrative_tone
+                        )
+                    )
+                except:
+                    pass
+
+            # Build response message
             if can_disprove and disprover and card:
-                message = (
-                    f"{disprover} disproved the suggestion by showing: {card.name}"
-                )
+                message = f"💭 {disprover} réfute en montrant : **{card.name}**"
             else:
-                message = "No one could disprove the suggestion!"
+                message = "💭 Personne ne peut réfuter cette suggestion !"
+
+            # Add AI comment if available
+            if ai_comment:
+                message += f"\n\n🗣️ **Desland** : {ai_comment}"
 
             GameEngine.add_turn_record(
-                game, state.player_id, "suggest", suggestion_text
+                game, state.player_id, "suggest", suggestion_text, ai_comment
             )
             game.next_turn()
             game_manager.save_games()
 
-            # Translate common responses
-            if "disproved" in message.lower():
-                return (
-                    f"💭 {message}\n\n➡️ Notes cette information pour tes déductions !"
-                )
-            else:
-                return f"💭 {message}\n\n⚠️ Aucun chnawax n'a pu réfuter ta théorie !"
+            message += "\n\n➡️ Notez cette information dans votre feuille d'enquête !"
+            return message
+
         else:
             # HTTP API call (local mode)
             response = requests.post(
@@ -421,21 +501,12 @@ def make_suggestion(character: str, weapon: str, room: str):
 
             if response.status_code == 200:
                 data = response.json()
-                message = data["message"]
-
-                # Translate common responses
-                if "disproved" in message.lower():
-                    return f"💭 {message}\n\n➡️ Notez cette information pour vos déductions !"
-                else:
-                    return f"💭 {message}\n\n⚠️ Personne n'a pu réfuter votre théorie !"
+                return data.get("message", "Suggestion effectuée")
             else:
-                error = response.json().get("detail", "Erreur inconnue")
-                if "Not your turn" in error:
-                    return "❌ Yamete coudasai ! C'est pas ton tour !"
-                return f"❌ Erreur réseau (fourlestourtes et les bourbillats) : {error}"
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"❌ Koikoubaiseyyyyy ! Erreur : {str(e)}"
+        return f"❌ Erreur : {str(e)}"
 
 
 def make_accusation(character: str, weapon: str, room: str):
@@ -446,48 +517,68 @@ def make_accusation(character: str, weapon: str, room: str):
         return "❌ Vous n'êtes pas dans une enquête"
 
     if not all([character, weapon, room]):
-        return "❌ Armankaboul ! Choisissez un personnage, une arme et un lieu"
+        return "❌ Choisissez un suspect, une arme et un lieu"
 
     try:
         if IS_HUGGINGFACE:
-            # Direct backend call
             from game_manager import game_manager
             from game_engine import GameEngine
             from models import GameStatus
+            from ai_service import ai_service
+            import asyncio
 
             game = game_manager.get_game(state.game_id)
-
             if not game:
-                return "❌ All RS5, erreur réseau : Enquête introuvable"
+                return "❌ Enquête introuvable"
 
-            # Verify it's the player's turn
             if not GameEngine.can_player_act(game, state.player_id):
-                return "❌ Yamete coudasai ! C'est pas ton tour !"
+                return "❌ Ce n'est pas votre tour !"
 
             player = next((p for p in game.players if p.id == state.player_id), None)
             if not player:
-                return "❌ All RS5, erreur réseau : Joueur introuvable"
+                return "❌ Joueur introuvable"
 
-            accusation_text = f"Accused: {character} with {weapon} in {room}"
+            accusation_text = f"{character} avec {weapon} dans {room}"
 
             is_correct, message = GameEngine.process_accusation(
                 game, state.player_id, character, weapon, room
             )
 
-            GameEngine.add_turn_record(game, state.player_id, "accuse", accusation_text)
+            # Generate AI comment if enabled
+            ai_comment = None
+            if game.use_ai and settings.USE_OPENAI:
+                try:
+                    ai_comment = asyncio.run(
+                        ai_service.generate_accusation_comment(
+                            player.name,
+                            character,
+                            weapon,
+                            room,
+                            is_correct,
+                            game.narrative_tone
+                        )
+                    )
+                except:
+                    pass
+
+            GameEngine.add_turn_record(game, state.player_id, "accuse", accusation_text, ai_comment)
 
             if not is_correct and game.status == GameStatus.IN_PROGRESS:
                 game.next_turn()
 
             game_manager.save_games()
 
-            # Check if win or lose
-            if "wins" in message.lower() or "correct" in message.lower():
-                return f"🎉🏆 {message} 🎉🏆\n\nTRIPLE MONSTRE COUCOUUUUU ! Tu as résolu le mystère ! (3 entre chat 4 et 1 brisé)"
-            elif "wrong" in message.lower() or "eliminated" in message.lower():
-                return f"💀 {message}\n\n😔 Fourlestourtes et les bourbillats... Tu as été éliminé calisse en pénitence siboère !\nTu peux toujours aider en réfutant les théories des autres."
+            # Build response
+            if is_correct:
+                response = f"🎉🏆 {message} 🎉🏆\n\nVous avez résolu le mystère !"
             else:
-                return f"⚖️ {message}"
+                response = f"💀 {message}\n\nVous avez été éliminé !\nVous pouvez toujours aider en réfutant les théories des autres."
+
+            if ai_comment:
+                response += f"\n\n🗣️ **Desland** : {ai_comment}"
+
+            return response
+
         else:
             # HTTP API call (local mode)
             response = requests.post(
@@ -505,23 +596,71 @@ def make_accusation(character: str, weapon: str, room: str):
 
             if response.status_code == 200:
                 data = response.json()
-                message = data["message"]
-
-                # Check if win or lose
-                if "wins" in message.lower() or "correct" in message.lower():
-                    return f"🎉🏆 {message} 🎉🏆\n\nTRIPLE MONSTRE COUCOUUUUU ! Tu as résolu le mystère ! (3 entre chat 4 et 1 brisé)"
-                elif "wrong" in message.lower() or "eliminated" in message.lower():
-                    return f"💀 {message}\n\n😔 Fourlestourtes et les bourbillats... Tu as été éliminé calisse en pénitence siboère !\nTu peux toujours aider en réfutant les théories des autres."
-                else:
-                    return f"⚖️ {message}"
+                return data.get("message", "Accusation effectuée")
             else:
-                error = response.json().get("detail", "Erreur inconnue")
-                if "Not your turn" in error:
-                    return "❌ Yamete coudasai ! C'est pas ton tour !"
-                return f"❌ All RS5, erreur réseau : {error}"
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"❌ Koikoubaiseyyyyy ! Erreur : {str(e)}"
+        return f"❌ Erreur : {str(e)}"
+
+
+def roll_and_move():
+    """
+    Roll dice and move the player.
+    """
+    if not state.game_id or not state.player_id:
+        return "❌ Vous n'êtes pas dans une enquête"
+
+    try:
+        if IS_HUGGINGFACE:
+            from game_manager import game_manager
+            from game_engine import GameEngine
+
+            game = game_manager.get_game(state.game_id)
+            if not game:
+                return "❌ Enquête introuvable"
+
+            if not GameEngine.can_player_act(game, state.player_id):
+                return "❌ Ce n'est pas votre tour !"
+
+            # Roll dice
+            dice_roll = GameEngine.roll_dice()
+
+            # Move player
+            success, message, new_room_index = GameEngine.move_player(
+                game, state.player_id, dice_roll
+            )
+
+            if not success:
+                return f"❌ {message}"
+
+            # Record turn
+            GameEngine.add_turn_record(game, state.player_id, "move", message)
+            game_manager.save_games()
+
+            current_room = game.rooms[new_room_index]
+            return f"🎲 {message}\n\n📍 Vous êtes maintenant dans : **{current_room}**\n\nVous pouvez faire une suggestion dans cette pièce ou passer votre tour."
+
+        else:
+            # HTTP API (local mode)
+            response = requests.post(
+                f"{API_BASE}/games/{state.game_id}/action",
+                json={
+                    "game_id": state.game_id,
+                    "player_id": state.player_id,
+                    "action_type": "move"
+                },
+                timeout=5,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("message", "Déplacé avec succès")
+            else:
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
+
+    except Exception as e:
+        return f"❌ Erreur : {str(e)}"
 
 
 def pass_turn():
@@ -529,35 +668,29 @@ def pass_turn():
     Pass the current turn.
     """
     if not state.game_id or not state.player_id:
-        return "❌ Eskilibass ! Vous n'êtes pas dans une enquête"
+        return "❌ Vous n'êtes pas dans une enquête"
 
     try:
         if IS_HUGGINGFACE:
-            # Direct backend call
             from game_manager import game_manager
             from game_engine import GameEngine
 
             game = game_manager.get_game(state.game_id)
-
             if not game:
-                return "❌ All RS5, erreur réseau ! Enquête introuvable"
+                return "❌ Enquête introuvable"
 
-            # Verify it's the player's turn
             if not GameEngine.can_player_act(game, state.player_id):
-                return "❌ Yamete coudasai ! C'est pas ton tour !"
-
-            player = next((p for p in game.players if p.id == state.player_id), None)
-            if not player:
-                return "❌ All RS5, erreur réseau ! Joueur introuvable"
+                return "❌ Ce n'est pas votre tour !"
 
             # Pass turn
-            GameEngine.add_turn_record(game, state.player_id, "pass", "Passed turn")
+            GameEngine.add_turn_record(game, state.player_id, "pass", "Tour passé")
             game.next_turn()
             game_manager.save_games()
 
-            return f"✅ Tour passé !\n\n➡️ C'est maintenant au tour de la prochaine poupouille."
+            next_player = game.get_current_player()
+            return f"✅ Tour passé !\n\n➡️ C'est maintenant au tour de {next_player.name if next_player else 'quelqu\'un'}."
+
         else:
-            # HTTP API call (local mode)
             response = requests.post(
                 f"{API_BASE}/games/{state.game_id}/action",
                 json={
@@ -569,16 +702,12 @@ def pass_turn():
             )
 
             if response.status_code == 200:
-                data = response.json()
-                return f"✅ Tour passé !\n\n➡️ C'est maintenant au tour de la prochaine poupouille."
+                return "✅ Tour passé !"
             else:
-                error = response.json().get("detail", "Erreur inconnue")
-                if "Not your turn" in error:
-                    return "❌ Yamete coudasai ! C'est pas ton tour !"
-                return f"❌ All RS5, erreur réseau (fourlestourtes et les bourbillats) : {error}"
+                return f"❌ Erreur : {response.json().get('detail', 'Erreur inconnue')}"
 
     except Exception as e:
-        return f"❌ Koikoubaiseyyyyy ! Erreur : {str(e)}"
+        return f"❌ Erreur : {str(e)}"
 
 
 # Sample lists for dropdowns
@@ -849,44 +978,105 @@ def create_gradio_interface():
             )
 
         with gr.Tab("🕯️ Créer une Partie"):
-            gr.Markdown("### 📜 Établir un Nouveau Mystère")
-            gr.Markdown("*Préparez la scène d'un meurtre des plus ignobles...*")
+            gr.Markdown("### 🎮 Créer Votre Enquête Personnalisée")
+            gr.Markdown("*Créez votre propre manoir, vos suspects et vos armes...*")
 
-            game_name_input = gr.Textbox(
-                label="🎭 Nom de l'enquête",
-                placeholder="Le Meurtre au Manoir des Poupouilles",
-                info="Donnez un nom à votre affaire (ex : armankaboul)",
-            )
+            with gr.Group():
+                game_name_input = gr.Textbox(
+                    label="🎭 Titre de l'enquête",
+                    placeholder="Meurtre au Coworking",
+                    info="Donnez un titre à votre affaire",
+                )
 
-            rooms_input = gr.Textbox(
-                label=f"🚪 Lieux de la scène de crime ({settings.MIN_ROOMS}-{settings.MAX_ROOMS} pièces)",
-                placeholder="Le salon des péchailloux, La chambre du Viande, Bureau des Chnawax, Le B15 des Tchoupinoux, Le jardin de la poupouille",
-                lines=4,
-                info="Séparez les pièces par des virgules ou des retours à la ligne",
-            )
+                from models import NarrativeTone
+                narrative_tone_dropdown = gr.Dropdown(
+                    label="🎨 Tonalité narrative",
+                    choices=[tone.value for tone in NarrativeTone],
+                    value=NarrativeTone.SERIOUS.value,
+                    info="Choisissez l'ambiance du jeu",
+                )
+
+                custom_prompt_input = gr.Textbox(
+                    label="✍️ Prompt personnalisé (optionnel)",
+                    placeholder="Style Agatha Christie avec humour noir...",
+                    lines=2,
+                    info="Personnalisez le style narratif de l'IA",
+                )
+
+            with gr.Group():
+                gr.Markdown("#### 🏠 Configuration du Plateau")
+                gr.Markdown("**Important** : L'ordre des pièces définit le plateau de jeu (circuit circulaire)")
+
+                rooms_input = gr.Textbox(
+                    label=f"🚪 Lieux ({settings.MIN_ROOMS}-{settings.MAX_ROOMS}) - DANS L'ORDRE",
+                    placeholder="Cuisine, Toit, Salle serveurs, Cafétéria, Bureau, Salle de réunion",
+                    lines=5,
+                    info="⚠️ L'ORDRE EST IMPORTANT ! Les joueurs se déplaceront dans cet ordre (circuit). Une ligne = une pièce.",
+                )
+
+                gr.Markdown(
+                    """
+                    💡 **Exemple de circuit** :
+                    ```
+                    1. Cuisine (départ)
+                    2. Salon
+                    3. Bureau
+                    4. Chambre
+                    5. Garage
+                    6. Jardin
+                    → retour à Cuisine (circuit fermé)
+                    ```
+                    Les joueurs avancent dans cet ordre selon les dés.
+                    """
+                )
+
+            with gr.Group():
+                gr.Markdown("#### 🎭 Éléments du Mystère")
+
+                suspects_input = gr.Textbox(
+                    label="👤 Suspects (min. 3)",
+                    placeholder="Claire, Pierre, Daniel, Marie, Thomas, Sophie",
+                    lines=2,
+                    info="Qui pourrait être le coupable ?",
+                )
+
+                weapons_input = gr.Textbox(
+                    label="🔪 Armes (min. 3)",
+                    placeholder="Clé USB, Capsule de café, Câble HDMI, Agrafeuse, Souris d'ordinateur, Plante verte",
+                    lines=2,
+                    info="Quelle arme a été utilisée ?",
+                )
 
             use_ai_checkbox = gr.Checkbox(
-                label="🤖 Activer le Narrateur IA - Lesland... euh non Desland",
+                label="🤖 Activer le Narrateur IA - Desland (le jardinier sarcastique)",
                 value=False,
                 visible=settings.USE_OPENAI,
-                info="Un vieux jardinier suspicieux qui semble en savoir plus qu'il n'y paraît...",
+                info="Desland commente vos actions avec sarcasme et suspicion...",
             )
 
             create_btn = gr.Button(
-                "🩸 Commencer l'Enquête", variant="primary", size="lg"
+                "🎬 Créer l'Enquête", variant="primary", size="lg"
             )
             create_output = gr.Textbox(
-                label="📋 Dossier de l'Affaire", lines=5, show_copy_button=True
+                label="📋 Résultat", lines=5, show_copy_button=True
             )
             game_id_display = gr.Textbox(
-                label="🔑 Code d'Enquête (partagez avec les autres poupouilles masquées)",
+                label="🔑 Code d'Enquête (à partager)",
                 interactive=False,
                 show_copy_button=True,
             )
 
             create_btn.click(
                 create_game,
-                inputs=[game_name_input, rooms_input, use_ai_checkbox],
+                inputs=[
+                    game_name_input,
+                    narrative_tone_dropdown,
+                    custom_prompt_input,
+                    rooms_input,
+                    weapons_input,
+                    suspects_input,
+                    use_ai_checkbox
+                ],
                 outputs=[create_output, game_id_display],
             )
 
@@ -941,50 +1131,64 @@ def create_gradio_interface():
                 start_btn.click(start_game, inputs=start_game_id, outputs=start_output)
 
         with gr.Tab("🔎 Enquêter"):
-            gr.Markdown("### 📰 Tableau d'Enquête")
-            gr.Markdown("*Étudiez les preuves et faites vos déductions...*")
+            gr.Markdown("### 🕹️ Tableau de Jeu")
+            gr.Markdown("*Lancez les dés, déplacez-vous, et menez l'enquête...*")
 
             with gr.Group():
                 refresh_btn = gr.Button(
                     "🔄 Actualiser le Dossier", size="lg", variant="secondary"
                 )
                 game_view = gr.Textbox(
-                    label="🗂️ Dossier du Détective",
+                    label="🗂️ État de la Partie",
                     lines=20,
                     max_lines=30,
                     show_copy_button=True,
-                    info="Cliquez sur Actualiser pour voir l'état actuel de la partie",
+                    info="Cliquez sur Actualiser pour voir l'état actuel",
                 )
 
                 refresh_btn.click(get_player_view, outputs=game_view)
 
             gr.Markdown("---")
-            gr.Markdown("### 🔮 Proposition de Théorie")
-            gr.Markdown("*Testez une hypothèse auprès des autres détectives...*")
+            gr.Markdown("### 🎲 Votre Tour")
+            gr.Markdown("**Étape 1 :** Lancez les dés pour vous déplacer")
+
+            with gr.Group():
+                roll_btn = gr.Button(
+                    "🎲 Lancer les Dés", variant="primary", size="lg"
+                )
+                move_output = gr.Textbox(
+                    label="📍 Déplacement", lines=3
+                )
+
+                roll_btn.click(roll_and_move, outputs=move_output)
+
+            gr.Markdown("---")
+            gr.Markdown("### 💭 Faire une Suggestion")
+            gr.Markdown("**Étape 2 :** Faites une suggestion *dans la pièce où vous êtes*")
 
             with gr.Group():
                 with gr.Row():
                     suggest_character = gr.Dropdown(
                         label="👤 Suspect",
-                        choices=DEFAULT_CHARACTERS,
-                        info="Choisissez un personnage",
+                        choices=[],  # Will be populated from game
+                        info="Qui est le coupable ?",
                     )
                     suggest_weapon = gr.Dropdown(
-                        label="🔪 Arme du Crime",
-                        choices=DEFAULT_WEAPONS,
-                        info="Choisissez une arme",
+                        label="🔪 Arme",
+                        choices=[],  # Will be populated from game
+                        info="Quelle arme ?",
                     )
                     suggest_room = gr.Dropdown(
-                        label="🚪 Lieu du Crime",
+                        label="🚪 Lieu",
                         choices=[],  # Will be populated from game
-                        info="Choisissez un lieu",
+                        info="Dans quel lieu ?",
                     )
 
                 suggest_btn = gr.Button(
-                    "💭 Proposer une Théorie", variant="primary", size="lg"
+                    "💭 Faire la Suggestion", variant="primary", size="lg"
                 )
                 suggest_output = gr.Textbox(
-                    label="🗨️ Réponse", lines=3, show_copy_button=True
+                    label="🗨️ Résultat", lines=5, show_copy_button=True
                 )
 
                 suggest_btn.click(
@@ -996,30 +1200,32 @@ def create_gradio_interface():
             gr.Markdown("---")
             gr.Markdown("### ⚖️ Accusation Finale")
             gr.Markdown(
-                "### ⚠️ *Yamete cudasaï ! Une fausse accusation vous élimine de l'enquête !*"
+                "⚠️ **ATTENTION :** Une fausse accusation vous élimine !"
             )
 
             with gr.Group():
                 with gr.Row():
                     accuse_character = gr.Dropdown(
-                        label="👤 Le Meurtrier",
-                        choices=DEFAULT_CHARACTERS,
-                        info="Qui a commis le crime ?",
+                        label="👤 Le Coupable",
+                        choices=[],
+                        info="Qui ?",
                     )
                     accuse_weapon = gr.Dropdown(
                         label="🔪 L'Arme",
-                        choices=DEFAULT_WEAPONS,
-                        info="Avec quelle arme ?",
+                        choices=[],
+                        info="Avec quoi ?",
                     )
                     accuse_room = gr.Dropdown(
-                        label="🚪 Le Lieu", choices=[], info="Dans quel lieu ?"
+                        label="🚪 Le Lieu",
+                        choices=[],
+                        info="Où ?",
                     )
 
                 accuse_btn = gr.Button(
-                    "⚡ FAIRE L'ACCUSATION", variant="stop", size="lg"
+                    "⚡ ACCUSER", variant="stop", size="lg"
                 )
                 accuse_output = gr.Textbox(
-                    label="⚖️ Verdict", lines=3, show_copy_button=True
+                    label="⚖️ Verdict", lines=5, show_copy_button=True
                 )
 
                 accuse_btn.click(
@@ -1053,35 +1259,16 @@ def run_fastapi():
 if __name__ == "__main__":
     # IS_HUGGINGFACE is already defined at the top of the file
 
-    if not IS_HUGGINGFACE:
-        # Local development: run FastAPI in background
-        def run_fastapi_bg():
-            """Run FastAPI on port 8000 in background"""
-            from api import app
-
-            uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
-
-        api_thread = threading.Thread(target=run_fastapi_bg, daemon=True)
-        api_thread.start()
-
-        # Wait for API to start
-        time.sleep(2)
+    # Note: We're always in HUGGINGFACE mode (direct backend calls)
+    # No need for FastAPI server
 
     # Create and launch Gradio interface
     demo = create_gradio_interface()
 
-    if IS_HUGGINGFACE:
-        # On Hugging Face Spaces: Gradio only on port 7860 (no FastAPI)
-        demo.launch(
-            server_name="0.0.0.0",
-            share=False,
-            show_error=True,
-        )
-    else:
-        # Local development: Gradio on port 7861, FastAPI on 8000
-        demo.launch(
-            server_name="127.0.0.1",
-            server_port=7861,
-            share=False,
-            show_error=True,
-        )
+    # Launch on available port
+    demo.launch(
+        server_name="127.0.0.1",
+        server_port=7862,
+        share=False,
+        show_error=True,
+    )

@@ -31,7 +31,11 @@ class GameManager:
         game = Game(
             game_id=game_id,
             name=request.game_name,
+            narrative_tone=request.narrative_tone,
+            custom_prompt=request.custom_prompt,
             rooms=request.rooms,
+            custom_weapons=request.custom_weapons,
+            custom_suspects=request.custom_suspects,
             use_ai=request.use_ai,
             max_players=settings.MAX_PLAYERS
         )
