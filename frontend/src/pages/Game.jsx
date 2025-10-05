@@ -67,10 +67,10 @@ function Game() {
       const result = await makeSuggestion(gameId, playerId, selectedSuspect, selectedWeapon, selectedRoom)
 
       // Show revealed card if any
-      if (result.data.card_shown) {
+      if (result.card_shown) {
         setRevealedCard({
-          ...result.data.card_shown,
-          disprover: result.data.disprover
+          ...result.card_shown,
+          disprover: result.disprover
         })
         setTimeout(() => setRevealedCard(null), 5000) // Hide after 5 seconds
       } else {
