@@ -1,192 +1,125 @@
-🎯 1. Objectif du projet
+🕹️ Cluedo Custom — Concept global
 
-Créer une application web de jeu Cluedo Custom, permettant à plusieurs joueurs d’organiser et de jouer à un Cluedo en conditions réelles (dans leur environnement physique — bureaux, maison, école…).
-Le jeu adapte les règles et les éléments du Cluedo au lieu choisi par les joueurs, avec une interface simple et collaborative.
+“Crée ton manoir. Invite des poupouilles. Le narrateur IA Lesland (euh non c'est Desland) enquête avec vous… ou contre vous.”
 
-👥 2. Public cible
+🎯 Objectif
 
-Groupes d’amis, collègues ou familles souhaitant transformer leur environnement en plateau de Cluedo.
+Découvrir la combinaison coupable (Suspect + Arme + Lieu)
+avant les autres joueurs — en interagissant avec une IA Maître du Jeu qui commente, bluffe et raconte.
 
-Animation d’événements, team-building, soirées.
+⚙️ 1. Création de la partie (par un joueur hôte)
+🧩 Étape 1 — Thème et contexte
 
-Aucune compétence technique requise pour les joueurs.
+L’hôte choisit :
 
-🧩 3. Fonctionnalités principales
-A. Gestion des parties
+Un titre de partie (ex : Meurtre au coworking ou Drame à la coloc).
 
-Créer une nouvelle partie
+Une tonalité narrative : 🕵️ Sérieuse, 😂 Parodique, 🧙‍♂️ Fantastique, 🎬 Thriller, etc.
 
-Saisir un nom de partie.
+Optionnel : un prompt personnalisé pour l’IA (ex : “style Agatha Christie avec humour noir”).
 
-Choisir le nombre de salles et leurs noms (ex : "Cuisine", "Salle de réunion", "Terrasse"...).
+🏠 Étape 2 — Création des “Lieux”
 
-(Optionnel) Activer ou non le mode IA pour générer des descriptions ou scénarios.
+L’hôte définit les pièces du plateau :
 
-Rejoindre une partie existante
+En tapant leurs noms : Cuisine, Toit, Salle serveurs, Cafétéria…
 
-Via un code ou lien de partage (UUID court).
+Le must serait d'avoir une interface drag & drop (petit éditeur de plan simplifié avec des tuiles).
 
-Le joueur saisit son nom ou pseudo.
+💡 L’ordre spatial a un impact : les joueurs doivent “se déplacer” virtuellement d’un lieu à l’autre.
 
-Lister les parties actives (en cours sur le serveur).
+🔪 Étape 3 — Liste des “Armes” et “Suspects”
 
-B. Gestion du jeu
+L’hôte ajoute les suspects (réels ou fictifs).
 
-Attribution automatique des rôles et cartes
+Idem pour les armes (“Clé USB”, “Capsule de café”, “Câble HDMI”, etc.)
 
-Personnages (ou avatars).
+🤖 Étape 4 — L'app scelle le crime
 
-Armes.
+L’app choisit aléatoirement une combinaison suspect + arme + lieu → “le crime secret”.
 
-Salles du lieu réel.
+👥 2. Connexion des joueurs
 
-Tour par tour
+Chaque joueur rejoint via un code de partie (type “AB7F”) en ajoutant son pseudo et une photo (en option) 
+Sur mobile, ils voient :
 
-L’application guide chaque joueur (texte ou vocal).
+Leur profil (pseudo, avatar)
 
-Affiche les actions possibles (déplacer, accuser, questionner, révéler une carte…).
+Leur feuille d’enquête numérique avec grilles interactives
 
-Résolution automatique
+Le plateau (vue simplifiée des pièces, connectées)
 
-L’app gère les vérifications des accusations et la fin du jeu.
+💡 Si tu veux garder les ressources légères, ce plateau peut être :
 
-Une interface affiche le gagnant et la solution.
+Soit une grille isométrique stylisée (SVG ou simple div CSS)
 
-C. Interaction joueur
+Soit une carte générée dynamiquement via JSON de la config hôte.
 
-Interface mobile first (compatible smartphone).
+Lorsqu'au moins 3 joueurs (dont l'hote) sont connectés, l'hote peut lancer la partie
 
-Navigation intuitive :
+🚶 3. Déroulement du jeu
+🎲 Tour par tour
 
-Vue "Salle actuelle"
+Chaque joueur :
 
-Bouton “Passer son tour”
+Lance les dés (virtuel) → se déplace sur le plateau.
 
-Bouton “Accuser”
+Une fois dans une pièce, peut faire une suggestion en sélectionnant suspect, arme et lieu dans des listes déroulantes.
 
-Historique minimal de la partie.
+🤖 L’IA Maître du Jeu intervient :
 
-Notifications légères pour indiquer le tour suivant ou un événement (ex : “Romain a fait une accusation !”).
+Elle réagit avec personnalité :
 
-D. Option IA (activable par variable d’environnement)
+“Une clé USB ? Sérieusement ? Tu crois qu’il l’a tué à coup de PowerPoint ?”
+“Mauvaise piste, détective. Tes neurones ont pris un café sans toi.”
 
-USE_OPENAI=true active la génération de contenu IA :
+L’IA :
 
-Génération de scénario d’enquête personnalisé (intro, contexte, description des personnages).
+Garde trace des suggestions.
 
-Suggestions de narration (ex : “Une ombre passe dans la salle…”).
+Indique si un autre joueur peut infirmer la théorie (en montrant une carte virtuelle).
 
-Reformulation fluide des messages de jeu.
+Peut glisser des indices narratifs ou des fausses pistes : “Une odeur de café froid flotte près du bureau…”
 
-USE_OPENAI=false → mode classique sans génération IA, avec textes statiques.
+🧠 4. Feuille d’enquête numérique
 
-🏗️ 4. Architecture technique
-Front-end
+Chaque joueur dispose d’une grille (cases cliquables ✅❌) :
 
-Framework léger : Gradio, Streamlit, ou React + FastAPI backend (selon préférences).
+Colonnes : Suspects / Armes / Lieux
 
-Interface responsive avec navigation fluide (sans reload complet).
 
-Stockage minimal côté client (sessionStorage).
+🎭 5. L’IA comme moteur de narration dynamique
 
-Back-end
+Là, tu fais la différence avec le Cluedo classique :
 
-FastAPI (Python) recommandé :
+📖 L’IA raconte :
 
-Gestion des routes : création / rejoindre / état de partie / actions.
+L’intro du crime (“Daniel a été retrouvé sans vie dans le hall du coworking. Sa clé USB, brisée, gît au sol…”)
 
-Gestion du moteur de jeu (règles, tirages aléatoires, synchronisation).
+Les transitions entre tours (“Une tempête s’abat dehors. Le Wi-Fi vacille. Suspense...”)
 
-WebSocket pour actualisation en temps réel (si faisable sans surcharge CPU).
+Les conclusions (“Pierre baisse la tête. L’IA a parlé. Le coupable est démasqué.”)
 
-Stockage en mémoire (Redis ou simple dictionnaire Python) pour les parties (limité à quelques dizaines de parties simultanées).
+🧩 Comportement adaptatif :
 
-Données persistées
+L’IA peut être plus ou moins moqueuse, dramatique, ou complice selon la tonalité choisie.
 
-Pas de base de données lourde.
+Elle peut injecter des événements aléatoires : “Coupure de courant : tout le monde reste figé une manche !”
 
-Stockage temporaire dans un simple fichier JSON (games.json) pour les sessions actives.
+🧑‍💻 6. Architecture simple pour Hugging Face Space
+Élément	Tech suggérée
+UI mobile responsive	Gradio Blocks + custom CSS
+Stockage des parties	Dictionnaire Python (ou TinyDB / JSON local)
+Génération IA	API OpenAI/HF pour la narration
+État de partie / logique	Python (serveur FastAPI intégré à Gradio)
+Plateau	Composant HTML dynamique généré à partir du JSON des lieux
+Multi-joueurs	WebSocket léger (ou polling HTTP + threads)
 
-Déploiement
 
-Conteneur Docker léger (Python 3.11 slim).
+💬 Exemple de tour complet
 
-Hugging Face Space (Gradio ou API + frontend minimal).
-
-Exposition sur un seul port HTTP (7860 par défaut HF).
-
-Pas d’état long terme : la perte du conteneur efface les parties (ok pour usage récréatif).
-
-⚙️ 5. Variables d’environnement
-Nom	Description	Valeur par défaut
-USE_OPENAI	Active la génération IA	false
-OPENAI_API_KEY	Clé OpenAI (optionnelle)	""
-APP_NAME	Nom affiché dans l’interface	"Cluedo Custom"
-MAX_PLAYERS	Nombre max de joueurs par partie	8
-🧠 6. Comportement IA (si activé)
-
-Utiliser GPT (via OpenAI API) pour :
-
-Générer la mise en scène du lieu : “Le meurtre a eu lieu dans la Salle des serveurs…”
-
-Personnaliser les noms et descriptions de personnages.
-
-Ajouter du dialogue narratif léger pendant les tours.
-
-Les prompts doivent être courts et à température basse pour éviter les délais.
-
-Pas d’appel IA bloquant : timeout max 3 secondes par requête.
-
-🎨 7. Design & ergonomie
-
-Principes UX :
-
-Interface claire, à gros boutons.
-
-Lecture sur mobile en priorité.
-
-Couleurs contrastées : fond clair, éléments colorés selon statut.
-
-Écrans :
-
-Accueil : Créer / Rejoindre une partie.
-
-Configuration : Nom des salles + activer IA.
-
-Salle de jeu : Vue principale (tour actuel, actions possibles).
-
-Fin de partie : Résumé + rejouer.
-
-🔒 8. Gestion des sessions / multi-joueurs
-
-Génération d’un Game ID unique à 6 caractères.
-
-Stockage des sessions en mémoire avec la liste des joueurs connectés.
-
-Chaque joueur identifié par un UUID stocké côté navigateur.
-
-Synchronisation légère entre joueurs (polling toutes les 2–3 secondes au lieu de WebSocket si besoin d’économie CPU).
-
-🧪 9. Tests & validation
-
-Unitaires : logique du moteur de jeu (distribution, accusation, vérification).
-
-End-to-end : création et déroulement d’une partie complète à 3 joueurs simulés.
-
-Tests IA (optionnels) : vérification du format et temps de réponse des prompts.
-
-📦 10. Livrables attendus
-
-Dockerfile léger (< 300 MB image finale).
-
-Fichier requirements.txt clair et court.
-
-Script app.py ou main.py lançant l’app HF.
-
-Documentation README.md :
-
-Variables d’environnement
-
-Instructions pour exécution locale et Space.
-
-Description du mode IA.
+👤 Toi : Selection de "Claire" avec l'arme "Clé USB" dans le lieu "Cuisine"
+🤖 IA : “Et toi ça te semble logique que Claire ait assassiné Daniel à côté de l’étendoir, en plein après-midi, avec un périphérique USB ? 🧠 Mauvais câble, détective.”
+(Un joueur montre virtuellement la carte “Claire”)
+✅ Tu coches “Claire” comme innocente.
+🔄 Prochain tour.
