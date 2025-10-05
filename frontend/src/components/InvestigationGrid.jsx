@@ -3,13 +3,29 @@ import { useState, useEffect } from 'react'
 function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
   const [notes, setNotes] = useState({})
 
-  // Initialize notes from localStorage
+  // Initialize notes from localStorage and set my cards
   useEffect(() => {
     const saved = localStorage.getItem('investigation_notes')
-    if (saved) {
-      setNotes(JSON.parse(saved))
-    }
-  }, [])
+    const initialNotes = saved ? JSON.parse(saved) : {}
+
+    // Initialize all items as 'unknown' if not already set
+    // This ensures cards not in my hand have a default status
+    const allItems = [
+      ...(suspects?.map(s => ({ name: s, type: 'character' })) || []),
+      ...(weapons?.map(w => ({ name: w, type: 'weapon' })) || []),
+      ...(rooms?.map(r => ({ name: r, type: 'room' })) || [])
+    ]
+
+    allItems.forEach(item => {
+      const key = `${item.type}:${item.name}`
+      // Only set to unknown if not already tracked
+      if (!(key in initialNotes)) {
+        initialNotes[key] = 'unknown'
+      }
+    })
+
+    setNotes(initialNotes)
+  }, [suspects, weapons, rooms])
 
   // Save notes to localStorage
   useEffect(() => {

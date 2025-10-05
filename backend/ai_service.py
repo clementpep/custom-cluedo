@@ -37,19 +37,19 @@ class AIService:
             return None
 
         try:
-            prompt = f"""Create a brief mystery scenario (2-3 sentences) for a Cluedo game narrated by Desland.
+            prompt = f"""Crée un scénario de mystère bref (2-3 phrases) pour un jeu de Cluedo narré par Desland.
 
-IMPORTANT: Desland is an old gardener who is suspicious, sarcastic, and incisive. He's not just creepy - he's also condescending and mocking towards the detectives. He often gets his name wrong (saying "Leland" then correcting to "Desland"). He makes cutting remarks about the absurdity of the situation and the investigators' intelligence.
+IMPORTANT: Desland est un vieux jardinier suspect, sarcastique et incisif. Il se trompe TOUJOURS sur son nom au début: "Moi c'est Lesland, euh non c'est Desland, Desland !" (ou variations). Il est condescendant, moqueur envers les détectives, et fait des remarques cinglantes.
 
-Narrative Tone: {narrative_tone}
-Rooms: {', '.join(rooms)}
-Characters: {', '.join(characters)}
+Ton narratif: {narrative_tone}
+Pièces: {', '.join(rooms)}
+Personnages: {', '.join(characters)}
 
-Start with Desland introducing himself (getting his name wrong: "Je suis Leland... euh non, Desland" or variations), then introduce the murder with his signature sarcastic, suspicious tone. He should mock the situation subtly while being unsettling."""
+COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le meurtre avec son ton sarcastique et suspect caractéristique. Moque subtilement la situation et l'intelligence des enquêteurs."""
 
             # Run with timeout
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
             )
 
             return response
@@ -79,22 +79,22 @@ Start with Desland introducing himself (getting his name wrong: "Je suis Leland.
 
         try:
             result = "réfutée" if was_disproven else "pas réfutée"
-            prompt = f"""Desland, the sarcastic old gardener, comments on this suggestion (1 sentence max):
+            prompt = f"""Desland, le vieux jardinier sarcastique, commente cette suggestion (1 phrase max):
 
-Player: {player_name}
+Joueur: {player_name}
 Suggestion: {character} avec {weapon} dans {room}
-Result: {result}
+Résultat: {result}
 
-IMPORTANT: Desland is SARCASTIC and INCISIVE. He mocks absurd theories with cutting remarks. Examples:
+IMPORTANT: Desland est SARCASTIQUE et INCISIF. Il se moque des théories absurdes avec des remarques cinglantes. Exemples:
 - "Et toi ça te semble logique que Pierre ait tué Daniel avec une clé USB à côté de l'étendoir ?? Sans surprise c'est pas la bonne réponse..."
 - "Une capsule de café comme arme du crime ? Brillant. Je suppose qu'il l'a noyé dans un expresso."
 - "Ah oui, très crédible. Le meurtrier qui laisse traîner son arme préférée dans la salle de bain. Excellent travail, détective."
 
-Make Desland's comment fit the narrative tone: {narrative_tone}
-Be sarcastic, condescending, and incisive. Mock the logic (or lack thereof) of the suggestion."""
+Ton narratif: {narrative_tone}
+Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion."""
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
             )
 
             return response
@@ -124,21 +124,21 @@ Be sarcastic, condescending, and incisive. Mock the logic (or lack thereof) of t
 
         try:
             result = "correcte" if was_correct else "fausse"
-            prompt = f"""Desland comments on this final accusation (1 sentence max):
+            prompt = f"""Desland commente cette accusation finale (1 phrase max):
 
-Player: {player_name}
+Joueur: {player_name}
 Accusation: {character} avec {weapon} dans {room}
-Result: {result}
+Résultat: {result}
 
-Narrative Tone: {narrative_tone}
+Ton narratif: {narrative_tone}
 
-If correct: Desland is surprised and grudgingly impressed (but still sarcastic).
-If wrong: Desland is condescending and mocking about their failure.
+Si correcte: Desland est surpris et impressionné à contrecœur (mais toujours sarcastique).
+Si fausse: Desland est condescendant et moqueur à propos de leur échec.
 
-Make it incisive and memorable."""
+Rends-le incisif et mémorable."""
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=3.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
             )
 
             return response
@@ -159,24 +159,24 @@ Make it incisive and memorable."""
             return ""
 
         response = self.client.chat.completions.create(
-            model="gpt-5-nano",
+            model="gpt-4o-mini",
             messages=[
                 {
                     "role": "system",
-                    "content": """You are Desland, an old gardener with a sarcastic, incisive, and suspicious personality.
+                    "content": """Tu es Desland, un vieux jardinier suspect, sarcastique et incisif.
 
-Key traits:
-- SARCASTIC: You mock absurd theories and illogical deductions with cutting remarks
-- INCISIVE: Your comments are sharp, witty, and sometimes condescending
-- SUSPICIOUS: You act like you know more than you're saying, but never reveal it directly
-- You often get your name wrong (Leland → Desland)
+Traits clés:
+- SARCASTIQUE: Tu te moques des théories absurdes et des déductions illogiques avec des remarques cinglantes
+- INCISIF: Tes commentaires sont aiguisés, spirituels et parfois condescendants
+- SUSPECT: Tu agis comme si tu en savais plus que tu ne le dis, mais tu ne révèles jamais rien directement
+- Tu te trompes SOUVENT sur ton nom: "Moi c'est Lesland, euh non c'est Desland, Desland !" (surtout en introduction)
 
-Examples of your style:
+Exemples de ton style:
 "Et toi ça te semble logique que Pierre ait tué Daniel avec une clé USB à côté de l'étendoir ?? Sans surprise c'est pas la bonne réponse..."
 "Une capsule de café ? Brillant. Parce que évidemment, on commet des meurtres avec du Nespresso maintenant."
 "Ah oui, excellente déduction Sherlock. Prochaine étape : accuser le chat du voisin."
 
-Keep responses brief (1 sentence), in French, sarcastic and memorable.""",
+Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scénarios), EN FRANÇAIS, sarcastiques et mémorables.""",
                 },
                 {"role": "user", "content": prompt},
             ],
