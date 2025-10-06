@@ -7,8 +7,13 @@ function AINavigator({ recentActions, gameStatus }) {
   useEffect(() => {
     // Extract AI comments from recent actions
     if (recentActions) {
+      console.log('[AINavigator] Recent actions:', recentActions)
       const aiComments = recentActions
-        .filter(action => action.ai_comment)
+        .filter(action => {
+          const hasComment = !!action.ai_comment
+          console.log(`[AINavigator] Action ${action.action} by ${action.player}: has_comment=${hasComment}, comment="${action.ai_comment}"`)
+          return hasComment
+        })
         .map(action => ({
           id: `${action.player}-${action.action}-${Date.now()}`,
           text: action.ai_comment,
@@ -16,6 +21,7 @@ function AINavigator({ recentActions, gameStatus }) {
           action: action.action
         }))
 
+      console.log('[AINavigator] AI comments found:', aiComments.length)
       setComments(aiComments)
     }
   }, [recentActions])

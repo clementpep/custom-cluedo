@@ -288,6 +288,9 @@ class GameEngine:
         if not player:
             return False, "Joueur introuvable"
 
+        if not player.has_rolled:
+            return False, "Tu dois d'abord lancer les dés avant de faire une suggestion !"
+
         current_room = game.rooms[player.current_room_index]
         if current_room != room:
             return False, f"Tu dois être dans {room} pour faire cette suggestion ! Tu es actuellement dans {current_room}."

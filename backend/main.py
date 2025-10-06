@@ -133,14 +133,16 @@ async def start_game(game_id: str):
     if game and game.use_ai and not game.scenario:
         try:
             from backend.ai_service import ai_service
+            print(f"[AI] Generating scenario...")
             game.scenario = await ai_service.generate_scenario(
                 game.rooms,
                 [c.name for c in game.characters],
                 game.narrative_tone
             )
+            print(f"[AI] Generated scenario: {game.scenario[:100]}...")
             game_manager.save_games()
         except Exception as e:
-            print(f"AI scenario generation failed: {e}")
+            print(f"[AI] AI scenario generation failed: {e}")
 
     return {
         "status": "started",
@@ -308,6 +310,7 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
         try:
             from backend.ai_service import ai_service
             import asyncio
+            print(f"[AI] Generating suggestion comment for {player_name}...")
             ai_comment = await ai_service.generate_suggestion_comment(
                 player_name,
                 req.suspect,
@@ -316,8 +319,9 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
                 can_disprove,
                 game.narrative_tone
             )
+            print(f"[AI] Generated comment: {ai_comment}")
         except Exception as e:
-            print(f"AI comment generation failed: {e}")
+            print(f"[AI] AI comment generation failed: {e}")
 
     result = {
         "suggestion": f"{req.suspect} + {req.weapon} + {req.room}",
@@ -376,6 +380,7 @@ async def make_accusation(game_id: str, req: AccusationRequest):
     if game.use_ai:
         try:
             from backend.ai_service import ai_service
+            print(f"[AI] Generating accusation comment for {player_name}...")
             ai_comment = await ai_service.generate_accusation_comment(
                 player_name,
                 req.suspect,
@@ -384,8 +389,9 @@ async def make_accusation(game_id: str, req: AccusationRequest):
                 is_correct,
                 game.narrative_tone
             )
+            print(f"[AI] Generated comment: {ai_comment}")
         except Exception as e:
-            print(f"AI comment generation failed: {e}")
+            print(f"[AI] AI comment generation failed: {e}")
 
     # Record turn with AI comment
     GameEngine.add_turn_record(
