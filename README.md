@@ -41,18 +41,25 @@ Application web de Cluedo personnalisable avec narrateur IA sarcastique (Desland
 # Build l'image
 docker build -t custom-cluedo .
 
-# Lance l'application
+# Option 1: Lance sans IA (Desland désactivé)
 docker run -p 7860:7860 custom-cluedo
 
-# Avec IA Desland activée
+# Option 2: Avec IA Desland activée (variables d'environnement)
 docker run -p 7860:7860 \
   -e USE_OPENAI=true \
   -e OPENAI_API_KEY=your_key_here \
   custom-cluedo
 
+# Option 3: Avec IA Desland activée (fichier .env)
+# 1. Créer un fichier .env avec vos variables (voir .env.example)
+# 2. Lancer avec --env-file
+docker run -p 7860:7860 --env-file .env custom-cluedo
+
 # Accéder à l'application
-open http://localhost:7860
+# Navigateur: http://localhost:7860
 ```
+
+**⚠️ IMPORTANT pour l'IA** : Si vous voulez les commentaires sarcastiques de Desland, vous DEVEZ passer les variables d'environnement au conteneur Docker (option 2 ou 3).
 
 ### Développement Local
 

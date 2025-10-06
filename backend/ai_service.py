@@ -74,7 +74,12 @@ COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le 
         Generate a sarcastic comment from Desland about a suggestion.
         Returns None if AI is disabled or if generation fails.
         """
+        print(
+            f"[AI Service] generate_suggestion_comment called: enabled={self.enabled}, client={self.client is not None}"
+        )
+
         if not self.enabled or not self.client:
+            print(f"[AI Service] AI disabled or client not initialized")
             return None
 
         try:
@@ -93,17 +98,22 @@ IMPORTANT: Desland est SARCASTIQUE et INCISIF. Il se moque des théories absurde
 Ton narratif: {narrative_tone}
 Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion."""
 
+            print(f"[AI Service] Calling OpenAI API...")
             response = await asyncio.wait_for(
                 asyncio.to_thread(self._generate_text, prompt), timeout=10.0
             )
+            print(f"[AI Service] OpenAI response received: {response}")
 
             return response
 
         except asyncio.TimeoutError:
-            print("AI comment generation timed out")
+            print("[AI Service] AI comment generation timed out")
             return None
         except Exception as e:
-            print(f"Error generating comment: {e}")
+            import traceback
+
+            print(f"[AI Service] Error generating comment: {e}")
+            print(traceback.format_exc())
             return None
 
     async def generate_accusation_comment(
@@ -156,14 +166,17 @@ Rends-le incisif et mémorable."""
         Uses higher temperature for creative sarcasm.
         """
         if not self.client:
+            print("[AI Service] _generate_text: No client")
             return ""
 
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": """Tu es Desland, un vieux jardinier suspect, sarcastique et incisif.
+        try:
+            print("[AI Service] _generate_text: Calling OpenAI API...")
+            response = self.client.chat.completions.create(
+                model="gpt-5-nano",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """Tu es Desland, un vieux jardinier suspect, sarcastique et incisif.
 
 Traits clés:
 - SARCASTIQUE: Tu te moques des théories absurdes et des déductions illogiques avec des remarques cinglantes
@@ -177,14 +190,30 @@ Exemples de ton style:
 "Ah oui, excellente déduction Sherlock. Prochaine étape : accuser le chat du voisin."
 
 Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scénarios), EN FRANÇAIS, sarcastiques et mémorables.""",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.9,
-            max_tokens=150,
-        )
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.9,
+                max_tokens=150,
+            )
 
-        return response.choices[0].message.content.strip()
+            print(
+                f"[AI Service] _generate_text: Response received, choices={len(response.choices)}"
+            )
+            if response.choices:
+                content = response.choices[0].message.content
+                print(f"[AI Service] _generate_text: Content={content}")
+                return content.strip() if content else ""
+            else:
+                print("[AI Service] _generate_text: No choices in response")
+                return ""
+
+        except Exception as e:
+            import traceback
+
+            print(f"[AI Service] _generate_text error: {e}")
+            print(traceback.format_exc())
+            return ""
 
 
 # Global AI service instance

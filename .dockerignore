@@ -1,3 +1,15 @@
+# Environment files (security)
+.env
+.env.local
+
+# Git
+.git
+.gitignore
+
+# Node
+node_modules
+npm-debug.log
+
 # Python
 __pycache__
 *.pyc
@@ -9,38 +21,28 @@ __pycache__
 *.egg-info
 dist
 build
-
-# Virtual environments
-venv/
-env/
-ENV/
+.venv
+venv
 
 # IDE
 .vscode
 .idea
 *.swp
 *.swo
-
-# Git
-.git
-.gitignore
-.gitattributes
-
-# Documentation
-*.md
-!README.md
-
-# Environment files
-.env
-
-# Game data
-games.json
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Testing
-.pytest_cache
-.coverage
-htmlcov
+# Test files
+*.test.js
+*.spec.js
+
+# Documentation
+README.md
+CORRECTIONS_IA.md
+*.md
+
+# Game data (will be created at runtime)
+games.json
