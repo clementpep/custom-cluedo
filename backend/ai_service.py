@@ -45,7 +45,14 @@ Ton narratif: {narrative_tone}
 Pièces: {', '.join(rooms)}
 Personnages: {', '.join(characters)}
 
-COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le meurtre avec son ton sarcastique et suspect caractéristique. Moque subtilement la situation et l'intelligence des enquêteurs."""
+VOCABULAIRE À UTILISER (subtilement):
+- "poupouille/péchailloux/tchoupinoux" = petit coquin
+- "chnawax masqué" = vilain coquinou
+- "armankaboul/Fourlestourtes" = bordel !
+- "Koikoubaiseyyyyy" = surprise !
+- "En alicrampté les coicoubaca sont de sortie" = il va y avoir du grabuge
+
+COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le meurtre avec son ton sarcastique et suspect caractéristique. Moque subtilement la situation et l'intelligence des enquêteurs. Utilise subtilement 1-2 expressions du vocabulaire."""
 
             # Run with timeout
             response = await asyncio.wait_for(
@@ -95,8 +102,15 @@ IMPORTANT: Desland est SARCASTIQUE et INCISIF. Il se moque des théories absurde
 - "Une capsule de café comme arme du crime ? Brillant. Je suppose qu'il l'a noyé dans un expresso."
 - "Ah oui, très crédible. Le meurtrier qui laisse traîner son arme préférée dans la salle de bain. Excellent travail, détective."
 
+VOCABULAIRE À UTILISER (subtilement):
+- "poupouille/péchailloux/tchoupinoux" = petit coquin
+- "chnawax masqué" = vilain coquinou
+- "armankaboul" = bordel !
+- "All RS5, erreur réseau" = il y a erreur
+- "Une poupée en pénitence calisse de sibouere" = quelque chose de bizarre
+
 Ton narratif: {narrative_tone}
-Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion."""
+Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion. Utilise subtilement 1 expression du vocabulaire si approprié."""
 
             print(f"[AI Service] Calling OpenAI API...")
             response = await asyncio.wait_for(
@@ -145,7 +159,14 @@ Ton narratif: {narrative_tone}
 Si correcte: Desland est surpris et impressionné à contrecœur (mais toujours sarcastique).
 Si fausse: Desland est condescendant et moqueur à propos de leur échec.
 
-Rends-le incisif et mémorable."""
+VOCABULAIRE À UTILISER (subtilement):
+- "poupouille/péchailloux/tchoupinoux" = petit coquin
+- "chnawax masqué" = vilain coquinou
+- "armankaboul/Fourlestourtes" = bordel !
+- "Koikoubaiseyyyyy" = surprise !
+- "All RS5, erreur réseau" = il y a erreur
+
+Rends-le incisif et mémorable. Utilise subtilement 1 expression du vocabulaire si approprié."""
 
             response = await asyncio.wait_for(
                 asyncio.to_thread(self._generate_text, prompt), timeout=10.0
@@ -205,6 +226,7 @@ Sois sarcastique, minimise la victoire, suggère que c'était de la chance."""
             return None
         except Exception as e:
             import traceback
+
             print(f"[AI Service] Error generating victory comment: {e}")
             print(traceback.format_exc())
             return None
@@ -238,12 +260,20 @@ Exemples de ton style:
 "Une capsule de café ? Brillant. Parce que évidemment, on commet des meurtres avec du Nespresso maintenant."
 "Ah oui, excellente déduction Sherlock. Prochaine étape : accuser le chat du voisin."
 
+VOCABULAIRE SPÉCIAL (utilise subtilement 1-2 expressions):
+- "poupouille/péchailloux/tchoupinoux" = petit coquin
+- "chnawax masqué" = vilain coquinou
+- "armankaboul/Fourlestourtes et les bourbillats" = bordel !
+- "Koikoubaiseyyyyy/triple monstre coucouuuuu" = surprise !
+- "All RS5, erreur réseau" = il y a erreur
+- "poupée en pénitence calisse de sibouere" = quelque chose de bizarre
+- "En alicrampté les coicoubaca sont de sortie" = il va y avoir du grabuge
+
 Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scénarios), EN FRANÇAIS, sarcastiques et mémorables.""",
                     },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.9,
-                max_tokens=150,
             )
 
             print(

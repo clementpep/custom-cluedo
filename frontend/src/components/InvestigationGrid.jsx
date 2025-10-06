@@ -9,7 +9,6 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
     const initialNotes = saved ? JSON.parse(saved) : {}
 
     // Initialize all items as 'unknown' if not already set
-    // This ensures cards not in my hand have a default status
     const allItems = [
       ...(suspects?.map(s => ({ name: s, type: 'character' })) || []),
       ...(weapons?.map(w => ({ name: w, type: 'weapon' })) || []),
@@ -18,14 +17,22 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
 
     allItems.forEach(item => {
       const key = `${item.type}:${item.name}`
-      // Only set to unknown if not already tracked
-      if (!(key in initialNotes)) {
+      // Check if this is one of my cards
+      const isMyCard = myCards?.some(card =>
+        card.name === item.name && card.type === item.type
+      )
+
+      if (isMyCard) {
+        // Always mark my cards as 'mine' (locked)
+        initialNotes[key] = 'mine'
+      } else if (!(key in initialNotes)) {
+        // Only set to unknown if not already tracked
         initialNotes[key] = 'unknown'
       }
     })
 
     setNotes(initialNotes)
-  }, [suspects, weapons, rooms])
+  }, [suspects, weapons, rooms, myCards])
 
   // Save notes to localStorage
   useEffect(() => {
@@ -33,6 +40,15 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
   }, [notes])
 
   const toggleNote = (item, type) => {
+    // Check if this is one of my cards - if so, don't allow toggling
+    const isMyCard = myCards?.some(card =>
+      card.name === item && card.type === type
+    )
+
+    if (isMyCard) {
+      return // Can't change status of my own cards
+    }
+
     const key = `${type}:${item}`
     setNotes(prev => {
       const current = prev[key] || 'unknown'
@@ -61,6 +77,22 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
     return '⬜'
   }
 
+  const getButtonClasses = (item, type) => {
+    const isMyCard = myCards?.some(card =>
+      card.name === item && card.type === type
+    )
+
+    const baseClasses = "flex items-center gap-2 px-3 py-2 rounded text-left text-sm border transition-all"
+
+    if (isMyCard) {
+      // Grayed out and locked for my cards
+      return `${baseClasses} bg-haunted-purple/20 text-haunted-fog/50 border-haunted-purple/40 cursor-not-allowed opacity-70`
+    }
+
+    // Normal interactive style for other cards
+    return `${baseClasses} bg-black/40 text-haunted-fog border-haunted-shadow hover:border-haunted-blood/50`
+  }
+
   return (
     <div className="bg-black/60 backdrop-blur-md p-6 rounded-lg border-2 border-haunted-shadow">
       <h2 className="text-xl font-bold text-haunted-blood mb-4 animate-flicker">📋 Grille d'Enquête</h2>
@@ -74,7 +106,7 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
               <button
                 key={i}
                 onClick={() => toggleNote(suspect, 'character')}
-                className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded text-left text-sm text-haunted-fog border border-haunted-shadow hover:border-haunted-blood/50 transition-all"
+                className={getButtonClasses(suspect, 'character')}
               >
                 <span className="text-lg">{getIcon(suspect, 'character')}</span>
                 <span className="flex-1 truncate">{suspect}</span>
@@ -91,7 +123,7 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
               <button
                 key={i}
                 onClick={() => toggleNote(weapon, 'weapon')}
-                className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded text-left text-sm text-haunted-fog border border-haunted-shadow hover:border-haunted-blood/50 transition-all"
+                className={getButtonClasses(weapon, 'weapon')}
               >
                 <span className="text-lg">{getIcon(weapon, 'weapon')}</span>
                 <span className="flex-1 truncate">{weapon}</span>
@@ -108,7 +140,7 @@ function InvestigationGrid({ suspects, weapons, rooms, myCards }) {
               <button
                 key={i}
                 onClick={() => toggleNote(room, 'room')}
-                className="flex items-center gap-2 bg-black/40 px-3 py-2 rounded text-left text-sm text-haunted-fog border border-haunted-shadow hover:border-haunted-blood/50 transition-all"
+                className={getButtonClasses(room, 'room')}
               >
                 <span className="text-lg">{getIcon(room, 'room')}</span>
                 <span className="flex-1 truncate">{room}</span>
