@@ -13,7 +13,7 @@ class AIService:
     """Service for AI-generated game content."""
 
     def __init__(self):
-        self.enabled = settings.USE_OPENAI and settings.OPENAI_API_KEY
+        self.enabled = settings.USE_OPENAI and bool(settings.OPENAI_API_KEY)
         self.client = None
 
         if self.enabled:
