@@ -234,7 +234,6 @@ Sois sarcastique, minimise la victoire, suggère que c'était de la chance."""
     def _generate_text(self, prompt: str) -> str:
         """
         Internal method to generate text using OpenAI API.
-        Uses higher temperature for creative sarcasm.
         """
         if not self.client:
             print("[AI Service] _generate_text: No client")
@@ -273,7 +272,6 @@ Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scéna
                     },
                     {"role": "user", "content": prompt},
                 ],
-                temperature=0.9,
             )
 
             print(
