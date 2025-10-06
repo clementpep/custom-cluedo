@@ -16,6 +16,7 @@ function Game() {
   const [selectedWeapon, setSelectedWeapon] = useState('')
   const [selectedRoom, setSelectedRoom] = useState('')
   const [revealedCard, setRevealedCard] = useState(null)
+  const [victoryModal, setVictoryModal] = useState(null)
 
   useEffect(() => {
     loadGameState()
@@ -97,7 +98,17 @@ function Game() {
 
     setActionLoading(true)
     try {
-      await makeAccusation(gameId, playerId, selectedSuspect, selectedWeapon, selectedRoom)
+      const result = await makeAccusation(gameId, playerId, selectedSuspect, selectedWeapon, selectedRoom)
+
+      // Show victory modal if correct
+      if (result.is_correct && result.solution) {
+        setVictoryModal({
+          winner: result.winner,
+          solution: result.solution,
+          victoryComment: result.victory_comment
+        })
+      }
+
       await loadGameState()
       setSelectedSuspect('')
       setSelectedWeapon('')
@@ -257,10 +268,10 @@ function Game() {
                 <div className="flex gap-4 mb-4">
                   <button
                     onClick={handleRollDice}
-                    disabled={actionLoading}
+                    disabled={actionLoading || gameState.current_turn.has_rolled}
                     className="px-6 py-3 bg-haunted-blood hover:bg-red-800 disabled:bg-dark-600 disabled:opacity-50 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
                   >
-                    🎲 Lancer les dés
+                    🎲 {gameState.current_turn.has_rolled ? 'Dés lancés' : 'Lancer les dés'}
                   </button>
                   <button
                     onClick={handlePassTurn}
@@ -346,6 +357,53 @@ function Game() {
           </div>
         </div>
       </div>
+
+      {/* Victory Modal */}
+      {victoryModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <div className="bg-gradient-to-b from-haunted-blood to-black p-8 rounded-lg border-4 border-haunted-purple max-w-lg mx-4 animate-bounce-in shadow-[0_0_50px_rgba(139,0,0,0.8)]">
+            <div className="text-center">
+              <h2 className="text-4xl font-bold text-white mb-4 animate-flicker">
+                🎉 Victoire !
+              </h2>
+              <p className="text-2xl text-haunted-purple mb-6">
+                {victoryModal.winner} a résolu l'enquête !
+              </p>
+
+              <div className="bg-black/60 p-6 rounded-lg mb-6 border-2 border-haunted-purple/50">
+                <h3 className="text-xl font-bold text-haunted-fog mb-4">Solution :</h3>
+                <div className="space-y-2 text-lg">
+                  <p><span className="text-haunted-purple font-bold">Suspect :</span> {victoryModal.solution.suspect}</p>
+                  <p><span className="text-haunted-purple font-bold">Arme :</span> {victoryModal.solution.weapon}</p>
+                  <p><span className="text-haunted-purple font-bold">Lieu :</span> {victoryModal.solution.room}</p>
+                </div>
+              </div>
+
+              {victoryModal.victoryComment && (
+                <div className="bg-black/80 p-4 rounded-lg border-l-4 border-haunted-purple mb-6">
+                  <p className="text-sm text-haunted-fog/70 mb-1">👻 Desland :</p>
+                  <p className="text-haunted-fog italic">"{victoryModal.victoryComment}"</p>
+                </div>
+              )}
+
+              <div className="flex gap-4 justify-center">
+                <button
+                  onClick={() => window.location.href = '/'}
+                  className="px-6 py-3 bg-haunted-purple hover:bg-purple-800 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(107,33,168,0.5)] border border-purple-900"
+                >
+                  🏠 Accueil
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-6 py-3 bg-haunted-blood hover:bg-red-800 text-white font-bold rounded-lg transition-all hover:shadow-[0_0_20px_rgba(139,0,0,0.5)] border border-red-900"
+                >
+                  🔄 Nouvelle partie
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

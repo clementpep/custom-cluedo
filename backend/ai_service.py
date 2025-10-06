@@ -160,6 +160,55 @@ Rends-le incisif et mémorable."""
             print(f"Error generating comment: {e}")
             return None
 
+    async def generate_victory_comment(
+        self,
+        player_name: str,
+        character: str,
+        weapon: str,
+        room: str,
+        narrative_tone: str = "🕵️ Sérieuse",
+    ) -> Optional[str]:
+        """
+        Generate a skeptical victory comment from Desland.
+        Returns None if AI is disabled or if generation fails.
+        """
+        print(f"[AI Service] generate_victory_comment called for {player_name}")
+
+        if not self.enabled or not self.client:
+            print(f"[AI Service] AI disabled or client not initialized")
+            return None
+
+        try:
+            prompt = f"""Desland commente la victoire (1-2 phrases max):
+
+Gagnant: {player_name}
+Solution: {character} avec {weapon} dans {room}
+
+IMPORTANT: Desland est SCEPTIQUE et JALOUX. Il minimise la victoire en suggérant que c'était de la chance, pas du talent. Ton:
+- "C'était sûrement de la chance, je ne crois pas en son talent à celui-là..."
+- "Pff, n'importe qui aurait pu trouver ça. Même un péchailloux masqué..."
+- "Bon, arrête de te vanter {player_name}, on sait tous que c'était armankaboul et que t'as eu du bol."
+
+Ton narratif: {narrative_tone}
+Sois sarcastique, minimise la victoire, suggère que c'était de la chance."""
+
+            print(f"[AI Service] Calling OpenAI API...")
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
+            )
+            print(f"[AI Service] OpenAI response received: {response}")
+
+            return response
+
+        except asyncio.TimeoutError:
+            print("[AI Service] AI victory comment generation timed out")
+            return None
+        except Exception as e:
+            import traceback
+            print(f"[AI Service] Error generating victory comment: {e}")
+            print(traceback.format_exc())
+            return None
+
     def _generate_text(self, prompt: str) -> str:
         """
         Internal method to generate text using OpenAI API.

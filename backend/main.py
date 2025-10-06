@@ -192,7 +192,8 @@ async def get_game_state(game_id: str, player_id: str):
         ],
         "current_turn": {
             "player_name": current_player.name if current_player else None,
-            "is_my_turn": current_player.id == player_id if current_player else False
+            "is_my_turn": current_player.id == player_id if current_player else False,
+            "has_rolled": player.has_rolled if player else False
         },
         "recent_actions": [
             {
@@ -225,7 +226,7 @@ async def roll_dice(game_id: str, req: DiceRollRequest):
     # Check if player already rolled
     player = next((p for p in game.players if p.id == req.player_id), None)
     if player and player.has_rolled:
-        raise HTTPException(status_code=400, detail="Vous avez déjà lancé les dés ce tour")
+        raise HTTPException(status_code=400, detail="Vous avez déjà lancé les dés ce tour ! Faites une suggestion ou passez votre tour.")
 
     # Roll dice
     dice = GameEngine.roll_dice()
@@ -377,6 +378,7 @@ async def make_accusation(game_id: str, req: AccusationRequest):
 
     # Generate AI comment if enabled
     ai_comment = None
+    victory_comment = None
     if game.use_ai:
         try:
             from backend.ai_service import ai_service
@@ -390,6 +392,18 @@ async def make_accusation(game_id: str, req: AccusationRequest):
                 game.narrative_tone
             )
             print(f"[AI] Generated comment: {ai_comment}")
+
+            # Generate victory comment if correct
+            if is_correct:
+                print(f"[AI] Generating victory comment for {player_name}...")
+                victory_comment = await ai_service.generate_victory_comment(
+                    player_name,
+                    req.suspect,
+                    req.weapon,
+                    req.room,
+                    game.narrative_tone
+                )
+                print(f"[AI] Generated victory comment: {victory_comment}")
         except Exception as e:
             print(f"[AI] AI comment generation failed: {e}")
 
@@ -410,7 +424,13 @@ async def make_accusation(game_id: str, req: AccusationRequest):
     return {
         "is_correct": is_correct,
         "message": message,
-        "winner": game.winner
+        "winner": game.winner,
+        "victory_comment": victory_comment,
+        "solution": {
+            "suspect": req.suspect,
+            "weapon": req.weapon,
+            "room": req.room
+        } if is_correct else None
     }
 
 
