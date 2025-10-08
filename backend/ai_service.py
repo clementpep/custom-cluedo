@@ -7,20 +7,63 @@ from typing import Optional
 from openai import OpenAI
 from backend.config import settings
 import asyncio
+import logging
+import httpx
+
+# Configure logger for AI service
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 
 class AIService:
-    """Service for AI-generated game content."""
+    """
+    Service for AI-generated game content using OpenAI API.
+
+    This service provides AI-powered narrative generation for the game,
+    including scenario creation and character commentary.
+
+    Attributes:
+        enabled (bool): Whether the AI service is active and ready to use
+        client (OpenAI): OpenAI API client instance
+    """
 
     def __init__(self):
+        """
+        Initialize the AI service.
+
+        Checks configuration and creates OpenAI client if enabled.
+        Falls back to disabled state if initialization fails.
+
+        The client is configured with:
+        - Extended timeout: 30 seconds total (connect: 5s, read: 25s)
+        - Automatic retries: 3 attempts with exponential backoff
+        - This handles network instability and API rate limits gracefully
+        """
         self.enabled = settings.USE_OPENAI and bool(settings.OPENAI_API_KEY)
         self.client = None
 
         if self.enabled:
             try:
-                self.client = OpenAI(api_key=settings.OPENAI_API_KEY)
+                # Configure timeout with granular control
+                # Total 30s: 5s to connect, 25s to read response
+                timeout = httpx.Timeout(
+                    30.0,  # Total timeout
+                    connect=5.0,  # Connection timeout
+                    read=25.0,  # Read timeout (API processing time)
+                    write=5.0  # Write timeout
+                )
+
+                # Initialize client with timeout and retry strategy
+                self.client = OpenAI(
+                    api_key=settings.OPENAI_API_KEY,
+                    timeout=timeout,
+                    max_retries=3  # Retry up to 3 times on network errors
+                )
+                logger.info("OpenAI client initialized successfully (timeout=30s, retries=3)")
             except Exception as e:
-                print(f"Failed to initialize OpenAI client: {e}")
+                logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
                 self.enabled = False
 
     async def generate_scenario(
@@ -31,9 +74,17 @@ class AIService:
     ) -> Optional[str]:
         """
         Generate a mystery scenario based on the game setup.
-        Returns None if AI is disabled or if generation fails.
+
+        Args:
+            rooms: List of room names available in the game
+            characters: List of character names available in the game
+            narrative_tone: The narrative tone for the scenario (default: "🕵️ Sérieuse")
+
+        Returns:
+            Generated scenario text or None if AI is disabled or generation fails
         """
         if not self.enabled or not self.client:
+            logger.debug("AI service not enabled or client not initialized")
             return None
 
         try:
@@ -54,18 +105,23 @@ VOCABULAIRE À UTILISER (subtilement):
 
 COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le meurtre avec son ton sarcastique et suspect caractéristique. Moque subtilement la situation et l'intelligence des enquêteurs. Utilise subtilement 1-2 expressions du vocabulaire."""
 
-            # Run with timeout
+            logger.info("Generating scenario with AI")
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=35.0
             )
+
+            if response:
+                logger.info("Scenario generated successfully")
+            else:
+                logger.warning("Scenario generation returned empty response")
 
             return response
 
         except asyncio.TimeoutError:
-            print("AI scenario generation timed out")
+            logger.error("AI scenario generation timed out after 35 seconds")
             return None
         except Exception as e:
-            print(f"Error generating scenario: {e}")
+            logger.error(f"Error generating scenario: {e}", exc_info=True)
             return None
 
     async def generate_suggestion_comment(
@@ -79,14 +135,25 @@ COMMENCE obligatoirement par Desland se trompant sur son nom, puis introduis le 
     ) -> Optional[str]:
         """
         Generate a sarcastic comment from Desland about a suggestion.
-        Returns None if AI is disabled or if generation fails.
+
+        Args:
+            player_name: Name of the player making the suggestion
+            character: Character suggested as the culprit
+            weapon: Weapon suggested as the murder weapon
+            room: Room suggested as the crime scene
+            was_disproven: Whether the suggestion was disproven by another player
+            narrative_tone: The narrative tone for the comment (default: "🕵️ Sérieuse")
+
+        Returns:
+            Generated comment text or None if AI is disabled or generation fails
         """
-        print(
-            f"[AI Service] generate_suggestion_comment called: enabled={self.enabled}, client={self.client is not None}"
+        logger.debug(
+            f"generate_suggestion_comment called: enabled={self.enabled}, "
+            f"client_exists={self.client is not None}, player={player_name}"
         )
 
         if not self.enabled or not self.client:
-            print(f"[AI Service] AI disabled or client not initialized")
+            logger.debug("AI service not enabled or client not initialized")
             return None
 
         try:
@@ -112,22 +179,23 @@ VOCABULAIRE À UTILISER (subtilement):
 Ton narratif: {narrative_tone}
 Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion. Utilise subtilement 1 expression du vocabulaire si approprié."""
 
-            print(f"[AI Service] Calling OpenAI API...")
+            logger.info(f"Generating suggestion comment for {player_name}")
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=35.0
             )
-            print(f"[AI Service] OpenAI response received: {response}")
+
+            if response:
+                logger.info(f"Suggestion comment generated: {response[:50]}...")
+            else:
+                logger.warning("Suggestion comment generation returned empty response")
 
             return response
 
         except asyncio.TimeoutError:
-            print("[AI Service] AI comment generation timed out")
+            logger.error("AI comment generation timed out after 35 seconds")
             return None
         except Exception as e:
-            import traceback
-
-            print(f"[AI Service] Error generating comment: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Error generating suggestion comment: {e}", exc_info=True)
             return None
 
     async def generate_accusation_comment(
@@ -141,9 +209,20 @@ Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de lo
     ) -> Optional[str]:
         """
         Generate a comment from Desland about an accusation.
-        Returns None if AI is disabled or if generation fails.
+
+        Args:
+            player_name: Name of the player making the accusation
+            character: Character accused as the culprit
+            weapon: Weapon accused as the murder weapon
+            room: Room accused as the crime scene
+            was_correct: Whether the accusation was correct
+            narrative_tone: The narrative tone for the comment (default: "🕵️ Sérieuse")
+
+        Returns:
+            Generated comment text or None if AI is disabled or generation fails
         """
         if not self.enabled or not self.client:
+            logger.debug("AI service not enabled or client not initialized")
             return None
 
         try:
@@ -168,17 +247,25 @@ VOCABULAIRE À UTILISER (subtilement):
 
 Rends-le incisif et mémorable. Utilise subtilement 1 expression du vocabulaire si approprié."""
 
-            response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
+            logger.info(
+                f"Generating accusation comment for {player_name} (correct={was_correct})"
             )
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self._generate_text, prompt), timeout=35.0
+            )
+
+            if response:
+                logger.info(f"Accusation comment generated: {response[:50]}...")
+            else:
+                logger.warning("Accusation comment generation returned empty response")
 
             return response
 
         except asyncio.TimeoutError:
-            print("AI comment generation timed out")
+            logger.error("AI comment generation timed out after 35 seconds")
             return None
         except Exception as e:
-            print(f"Error generating comment: {e}")
+            logger.error(f"Error generating accusation comment: {e}", exc_info=True)
             return None
 
     async def generate_victory_comment(
@@ -191,12 +278,21 @@ Rends-le incisif et mémorable. Utilise subtilement 1 expression du vocabulaire 
     ) -> Optional[str]:
         """
         Generate a skeptical victory comment from Desland.
-        Returns None if AI is disabled or if generation fails.
+
+        Args:
+            player_name: Name of the winning player
+            character: The actual culprit character
+            weapon: The actual murder weapon
+            room: The actual crime scene room
+            narrative_tone: The narrative tone for the comment (default: "🕵️ Sérieuse")
+
+        Returns:
+            Generated victory comment or None if AI is disabled or generation fails
         """
-        print(f"[AI Service] generate_victory_comment called for {player_name}")
+        logger.info(f"generate_victory_comment called for {player_name}")
 
         if not self.enabled or not self.client:
-            print(f"[AI Service] AI disabled or client not initialized")
+            logger.debug("AI service not enabled or client not initialized")
             return None
 
         try:
@@ -213,34 +309,51 @@ IMPORTANT: Desland est SCEPTIQUE et JALOUX. Il minimise la victoire en suggéran
 Ton narratif: {narrative_tone}
 Sois sarcastique, minimise la victoire, suggère que c'était de la chance."""
 
-            print(f"[AI Service] Calling OpenAI API...")
+            logger.info(f"Generating victory comment for {player_name}")
             response = await asyncio.wait_for(
-                asyncio.to_thread(self._generate_text, prompt), timeout=10.0
+                asyncio.to_thread(self._generate_text, prompt), timeout=35.0
             )
-            print(f"[AI Service] OpenAI response received: {response}")
+
+            if response:
+                logger.info(f"Victory comment generated: {response[:50]}...")
+            else:
+                logger.warning("Victory comment generation returned empty response")
 
             return response
 
         except asyncio.TimeoutError:
-            print("[AI Service] AI victory comment generation timed out")
+            logger.error("AI victory comment generation timed out after 35 seconds")
             return None
         except Exception as e:
-            import traceback
-
-            print(f"[AI Service] Error generating victory comment: {e}")
-            print(traceback.format_exc())
+            logger.error(f"Error generating victory comment: {e}", exc_info=True)
             return None
 
     def _generate_text(self, prompt: str) -> str:
         """
         Internal method to generate text using OpenAI API.
+
+        Args:
+            prompt: The user prompt to send to the AI model
+
+        Returns:
+            Generated text response or empty string if generation fails
+
+        Note:
+            This method is synchronous and should be called via asyncio.to_thread()
+            from async methods to avoid blocking the event loop.
         """
         if not self.client:
-            print("[AI Service] _generate_text: No client")
+            logger.error("_generate_text called but client is not initialized")
             return ""
 
         try:
-            print("[AI Service] _generate_text: Calling OpenAI API...")
+            import time
+            start_time = time.time()
+            logger.debug("Calling OpenAI API with chat completion (model: gpt-5-nano)")
+
+            # Call OpenAI API without max_tokens or temperature parameters
+            # The API will use default values which are appropriate for most use cases
+            # The client has built-in retry logic (3 attempts) and 30s timeout
             response = self.client.chat.completions.create(
                 model="gpt-5-nano",
                 messages=[
@@ -274,22 +387,29 @@ Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scéna
                 ],
             )
 
-            print(
-                f"[AI Service] _generate_text: Response received, choices={len(response.choices)}"
+            elapsed_time = time.time() - start_time
+            logger.debug(
+                f"OpenAI API response received in {elapsed_time:.2f}s with {len(response.choices)} choices"
             )
-            if response.choices:
+
+            if response.choices and len(response.choices) > 0:
                 content = response.choices[0].message.content
-                print(f"[AI Service] _generate_text: Content={content}")
-                return content.strip() if content else ""
+                if content:
+                    logger.debug(f"Generated content ({len(content)} chars): {content[:100]}...")
+                    return content.strip()
+                else:
+                    logger.warning("Response content is None or empty")
+                    return ""
             else:
-                print("[AI Service] _generate_text: No choices in response")
+                logger.warning("No choices in OpenAI API response")
                 return ""
 
         except Exception as e:
-            import traceback
-
-            print(f"[AI Service] _generate_text error: {e}")
-            print(traceback.format_exc())
+            elapsed_time = time.time() - start_time
+            logger.error(
+                f"Error in _generate_text after {elapsed_time:.2f}s: {e}",
+                exc_info=True
+            )
             return ""
 
 

@@ -10,11 +10,19 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import os
+import logging
 
 from backend.models import CreateGameRequest, GameStatus
 from backend.game_manager import game_manager
 from backend.game_engine import GameEngine
 from backend.defaults import get_default_game_config, DEFAULT_THEMES
+
+# Configure logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = FastAPI(title="Cluedo Custom API")
 
@@ -133,16 +141,19 @@ async def start_game(game_id: str):
     if game and game.use_ai and not game.scenario:
         try:
             from backend.ai_service import ai_service
-            print(f"[AI] Generating scenario...")
+            logger.info("Generating AI scenario for game start")
             game.scenario = await ai_service.generate_scenario(
                 game.rooms,
                 [c.name for c in game.characters],
                 game.narrative_tone
             )
-            print(f"[AI] Generated scenario: {game.scenario[:100]}...")
-            game_manager.save_games()
+            if game.scenario:
+                logger.info(f"Generated scenario: {game.scenario[:100]}...")
+                game_manager.save_games()
+            else:
+                logger.warning("AI scenario generation returned None")
         except Exception as e:
-            print(f"[AI] AI scenario generation failed: {e}")
+            logger.error(f"AI scenario generation failed: {e}", exc_info=True)
 
     return {
         "status": "started",
@@ -255,7 +266,7 @@ async def roll_dice(game_id: str, req: DiceRollRequest):
             import random
             ai_comment = random.choice(prompts)
         except Exception as e:
-            print(f"AI comment generation failed: {e}")
+            logger.error(f"AI comment generation failed: {e}", exc_info=True)
 
     # Mark player as having rolled
     if player:
@@ -310,8 +321,7 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
     if game.use_ai:
         try:
             from backend.ai_service import ai_service
-            import asyncio
-            print(f"[AI] Generating suggestion comment for {player_name}...")
+            logger.info(f"Generating AI suggestion comment for {player_name}")
             ai_comment = await ai_service.generate_suggestion_comment(
                 player_name,
                 req.suspect,
@@ -320,9 +330,12 @@ async def make_suggestion(game_id: str, req: SuggestionRequest):
                 can_disprove,
                 game.narrative_tone
             )
-            print(f"[AI] Generated comment: {ai_comment}")
+            if ai_comment:
+                logger.info(f"Generated comment: {ai_comment[:50]}...")
+            else:
+                logger.warning("AI comment generation returned None")
         except Exception as e:
-            print(f"[AI] AI comment generation failed: {e}")
+            logger.error(f"AI comment generation failed: {e}", exc_info=True)
 
     result = {
         "suggestion": f"{req.suspect} + {req.weapon} + {req.room}",
@@ -382,7 +395,7 @@ async def make_accusation(game_id: str, req: AccusationRequest):
     if game.use_ai:
         try:
             from backend.ai_service import ai_service
-            print(f"[AI] Generating accusation comment for {player_name}...")
+            logger.info(f"Generating AI accusation comment for {player_name}")
             ai_comment = await ai_service.generate_accusation_comment(
                 player_name,
                 req.suspect,
@@ -391,11 +404,14 @@ async def make_accusation(game_id: str, req: AccusationRequest):
                 is_correct,
                 game.narrative_tone
             )
-            print(f"[AI] Generated comment: {ai_comment}")
+            if ai_comment:
+                logger.info(f"Generated accusation comment: {ai_comment[:50]}...")
+            else:
+                logger.warning("AI accusation comment generation returned None")
 
             # Generate victory comment if correct
             if is_correct:
-                print(f"[AI] Generating victory comment for {player_name}...")
+                logger.info(f"Generating AI victory comment for {player_name}")
                 victory_comment = await ai_service.generate_victory_comment(
                     player_name,
                     req.suspect,
@@ -403,9 +419,12 @@ async def make_accusation(game_id: str, req: AccusationRequest):
                     req.room,
                     game.narrative_tone
                 )
-                print(f"[AI] Generated victory comment: {victory_comment}")
+                if victory_comment:
+                    logger.info(f"Generated victory comment: {victory_comment[:50]}...")
+                else:
+                    logger.warning("AI victory comment generation returned None")
         except Exception as e:
-            print(f"[AI] AI comment generation failed: {e}")
+            logger.error(f"AI comment generation failed: {e}", exc_info=True)
 
     # Record turn with AI comment
     GameEngine.add_turn_record(
