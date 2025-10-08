@@ -20,6 +20,7 @@ class Settings:
     # AI settings
     USE_OPENAI: bool = os.getenv("USE_OPENAI", "false").lower() == "true"
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-5-nano")
 
     # Game settings
     MIN_PLAYERS: int = 3

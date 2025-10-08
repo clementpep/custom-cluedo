@@ -27,6 +27,7 @@ class AIService:
     Attributes:
         enabled (bool): Whether the AI service is active and ready to use
         client (OpenAI): OpenAI API client instance
+        model (str): OpenAI model to use for text generation
     """
 
     def __init__(self):
@@ -40,9 +41,13 @@ class AIService:
         - Extended timeout: 30 seconds total (connect: 5s, read: 25s)
         - Automatic retries: 3 attempts with exponential backoff
         - This handles network instability and API rate limits gracefully
+
+        The model is configurable via OPENAI_MODEL environment variable
+        (default: gpt-5-nano)
         """
         self.enabled = settings.USE_OPENAI and bool(settings.OPENAI_API_KEY)
         self.client = None
+        self.model = settings.OPENAI_MODEL
 
         if self.enabled:
             try:
@@ -52,16 +57,18 @@ class AIService:
                     30.0,  # Total timeout
                     connect=5.0,  # Connection timeout
                     read=25.0,  # Read timeout (API processing time)
-                    write=5.0  # Write timeout
+                    write=5.0,  # Write timeout
                 )
 
                 # Initialize client with timeout and retry strategy
                 self.client = OpenAI(
                     api_key=settings.OPENAI_API_KEY,
                     timeout=timeout,
-                    max_retries=3  # Retry up to 3 times on network errors
+                    max_retries=3,  # Retry up to 3 times on network errors
                 )
-                logger.info("OpenAI client initialized successfully (timeout=30s, retries=3)")
+                logger.info(
+                    f"OpenAI client initialized successfully (model={self.model}, timeout=30s, retries=3)"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}", exc_info=True)
                 self.enabled = False
@@ -173,11 +180,10 @@ VOCABULAIRE À UTILISER (subtilement):
 - "poupouille/péchailloux/tchoupinoux" = petit coquin
 - "chnawax masqué" = vilain coquinou
 - "armankaboul" = bordel !
-- "All RS5, erreur réseau" = il y a erreur
 - "Une poupée en pénitence calisse de sibouere" = quelque chose de bizarre
 
 Ton narratif: {narrative_tone}
-Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion. Utilise subtilement 1 expression du vocabulaire si approprié."""
+Sois sarcastique, condescendant et incisif. Moque la logique (ou l'absence de logique) de la suggestion. Utilise subtilement une expression si approprié."""
 
             logger.info(f"Generating suggestion comment for {player_name}")
             response = await asyncio.wait_for(
@@ -243,9 +249,8 @@ VOCABULAIRE À UTILISER (subtilement):
 - "chnawax masqué" = vilain coquinou
 - "armankaboul/Fourlestourtes" = bordel !
 - "Koikoubaiseyyyyy" = surprise !
-- "All RS5, erreur réseau" = il y a erreur
 
-Rends-le incisif et mémorable. Utilise subtilement 1 expression du vocabulaire si approprié."""
+Rends-le incisif et mémorable. Utilise subtilement une expression si approprié."""
 
             logger.info(
                 f"Generating accusation comment for {player_name} (correct={was_correct})"
@@ -348,14 +353,15 @@ Sois sarcastique, minimise la victoire, suggère que c'était de la chance."""
 
         try:
             import time
+
             start_time = time.time()
-            logger.debug("Calling OpenAI API with chat completion (model: gpt-5-nano)")
+            logger.debug(f"Calling OpenAI API with chat completion (model: {self.model})")
 
             # Call OpenAI API without max_tokens or temperature parameters
             # The API will use default values which are appropriate for most use cases
             # The client has built-in retry logic (3 attempts) and 30s timeout
             response = self.client.chat.completions.create(
-                model="gpt-5-nano",
+                model=self.model,
                 messages=[
                     {
                         "role": "system",
@@ -395,7 +401,9 @@ Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scéna
             if response.choices and len(response.choices) > 0:
                 content = response.choices[0].message.content
                 if content:
-                    logger.debug(f"Generated content ({len(content)} chars): {content[:100]}...")
+                    logger.debug(
+                        f"Generated content ({len(content)} chars): {content[:100]}..."
+                    )
                     return content.strip()
                 else:
                     logger.warning("Response content is None or empty")
@@ -407,8 +415,7 @@ Garde tes réponses brèves (1 phrase pour les commentaires, 2-3 pour les scéna
         except Exception as e:
             elapsed_time = time.time() - start_time
             logger.error(
-                f"Error in _generate_text after {elapsed_time:.2f}s: {e}",
-                exc_info=True
+                f"Error in _generate_text after {elapsed_time:.2f}s: {e}", exc_info=True
             )
             return ""
 

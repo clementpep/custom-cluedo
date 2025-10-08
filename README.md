@@ -170,7 +170,7 @@ chat du voisin."
 
 ### Configuration IA
 
-- Modèle: gpt-5-nano
+- Modèle: gpt-5-mini
 - Température: 0.9 (créativité élevée)
 - Timeout: 3 secondes max
 - Fallback gracieux si indisponible
@@ -227,7 +227,7 @@ custom-cluedo/
 
 - **Backend** : FastAPI, Python 3.11, Pydantic
 - **Frontend** : React 18, Vite, TailwindCSS
-- **IA** : OpenAI gpt-5-nano (optionnel)
+- **IA** : OpenAI gpt-5-mini (optionnel)
 - **Stockage** : JSON (games.json)
 - **Déploiement** : Docker, Hugging Face Spaces
 
